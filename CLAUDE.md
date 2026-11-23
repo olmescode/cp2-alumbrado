@@ -4,7 +4,7 @@
 
 Adaptive street lighting for the CP2 assignment of the UNEMI course "Modelos y Simulación" (Group 10). Six LED street lights on a physical model respond to ambient light (LDR) and to pedestrians (PIR + street graph). A web dashboard simulates and compares three lighting strategies (permanent, scheduled, adaptive). It also mirrors the ESP32 in real time.
 
-The scope of this repository is the software: the shared models, the web app, the server and the firmware. The app has three tabs that mirror how a real smart lighting system works: **Monitoreo** (live data from the board plus operator controls), **Análisis** (recorded nights, observed vs simulated savings, consumption regression) and **Simulación** (a digital copy of the city to compare strategies). Live views show only real data from the board: there is no emulator. The written report is produced elsewhere, from what this app generates.
+The scope of this repository is the software: the shared models, the web app, the server and the firmware. The app has three tabs that mirror how a real smart lighting system works: **Monitoreo** (live data from the board plus operator controls), **Simulación** (a digital copy of the city) and **Análisis** (results of the models fed by both: strategy comparison, recorded nights, consumption regression, Dijkstra, CSV export). Monitoreo and Simulación share one layout (`screenLayout.js`): map, Ahora, controls, power during the night. A simulated night at x720 lasts 1 minute, like a night on the physical model. Live views show only real data from the board: there is no emulator. The written report is produced elsewhere, from what this app generates.
 
 Delivery is Sunday 22 Nov 2026, 23:59. Keep every step working so work can stop at any point.
 
@@ -36,9 +36,10 @@ arduino-cli compile --fqbn esp32:esp32:esp32 firmware/streetlights
 src/
 ├── shared/       # The 3 models, pure, no I/O; imported by client, server and scripts
 ├── server/       # Node: static hosting, WebSocket bridge, CSV logging
-└── client/       # Web app: main.js, connection.js, cityMap.js, charts.js, labels.js, screens/
+└── client/       # Web app: main.js, connection.js, cityMap.js, charts.js, labels.js, screenLayout.js, screens/
 firmware/         # Arduino sketch (C++ port of src/shared with the same names)
-scripts/          # One-off tools (results export, parameter optimization)
+scripts/          # One-off tools (results export)
+notebooks/        # Colab notebook that analyses the exported CSV like the class practices
 tests/            # node --test
 data/             # Generated output: logs/ and results/
 docs/             # system.md, architecture.md, reference/ (assignment PDF, plan, prior context)

@@ -26,6 +26,14 @@ npm run export  # resultados de la simulación en data/results/
   1. Haz una noche de 1 minuto con cada estrategia, pasando el muñeco el mismo número de veces.
   2. Abre **Análisis**: ahí aparece el ahorro medido junto al simulado.
 - **Antes de la exposición:** pulsa **Calibrar consumo** una vez para obtener la recta potencia = a + b · brillo con datos reales.
+- **Simulación:** a velocidad ×720 una noche simulada dura 1 minuto, igual que en la maqueta. Al llegar a las 06:00, o con **Calcular al instante**, la noche se guarda en Análisis junto a las de la maqueta.
+
+## Análisis en Colab
+
+1. En la pestaña **Análisis**, sección **Exportar datos**, descarga los 4 CSV.
+2. Abre `notebooks/analisis_alumbrado.ipynb` en Google Colab y ejecútalo; la primera celda pide subir los archivos.
+
+El cuaderno sigue el formato de las prácticas de clase y aplica sus funciones (`reg_lin`, `tabla_sumatorias`, Euler, `dijkstra_tabla`) a los datos de la maqueta y de la simulación.
 
 ## Conectar la placa
 
@@ -59,4 +67,5 @@ npm run export  # resultados de la simulación en data/results/
 | `tests/` | Pruebas automáticas |
 | `scripts/` | Exportación de resultados de la simulación |
 | `data/` | Archivos generados: `results/` (simulación), `nights/`, `nights.json` y `calibration.json` (maqueta) |
+| `notebooks/` | Cuaderno de Colab para analizar los CSV exportados |
 | `docs/` | Especificación, diagramas y material de referencia |

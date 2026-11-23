@@ -28,8 +28,14 @@ function localTime() {
   return now.toLocaleString('sv');
 }
 
+function preciseTime() {
+  const now = new Date();
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  return `${now.toLocaleString('sv')}.${milliseconds}`;
+}
+
 function csvRow(reading) {
-  const cells = [localTime()];
+  const cells = [preciseTime()];
   for (const column of COLUMNS.slice(1)) {
     const cell = reading[column];
     cells.push(Array.isArray(cell) ? cell.join(';') : cell);

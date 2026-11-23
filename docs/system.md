@@ -175,3 +175,7 @@ Each strategy × scenario run reports:
 | `nights/night_<start>.csv` | Every reading of one night |
 | `nights.json` | One summary per night: start, strategy (or mixed), seconds, people detected, energy in mWh (Σ P · Δt with readings in `auto` mode), average power |
 | `calibration.json` | Points (brightness %, average mW) of the last calibration |
+
+Simulated nights are saved in `nights.json` too (`source: simulacion`, Wh and W, with service level and power per minute) when a night reaches 06:00 in the Simulación tab or with "Calcular al instante".
+
+**CSV export** (`/api/export/<name>.csv`, buttons in Análisis): `resumen_noches`, `lecturas_maqueta`, `calibracion`, `simulacion_por_minuto`. `notebooks/analisis_alumbrado.ipynb` reads these four files.
