@@ -1,0 +1,13 @@
+{
+  "name": "adaptive-street-lighting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CP2 Modelos y Simulación (UNEMI) · Group 10 · Adaptive street lighting",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "export": "node scripts/exportResults.js",
+    "start": "node src/server/main.js",
+    "emulator": "node src/emulator/main.js"
+  }
+}
