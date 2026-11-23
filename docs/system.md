@@ -62,6 +62,7 @@ Night and day use hysteresis: it is night when `ldrPercent < 30` and day when `l
   - Real scale: intercept 0, slope 100 W.
   - Physical model: replace both with the INA219 regression, in mW.
 - `energy`: the sum of `power × Δt` over the 6 poles, with Δt = 1 s, reported in Wh. This is Euler's method on dE/dt = P(t) (class practice 2).
+- `realScale(milliwatts)`: converts what the INA219 measures on the model to real scale, `mW × 100 W / 90 mW` (`LED_FULL_MW = 90`), so the board and the simulation share units (W, Wh).
 - `linearRegression(points)` returns `{ intercept, slope, r2 }`.
   - It uses the same summation formulas as `reg_lin` in class practice 7: Sx, Sy, Sxy, Sxx, Syy, and r² from the correlation.
   - Input is the brightness sweep from 0 to 100 % in steps of 10 %.
@@ -173,9 +174,9 @@ Each strategy × scenario run reports:
 | File | Content |
 |---|---|
 | `nights/night_<start>.csv` | Every reading of one night |
-| `nights.json` | One summary per night: start, strategy (or mixed), seconds, people detected, energy in mWh (Σ P · Δt with readings in `auto` mode), average power |
+| `nights.json` | One summary per night: start, strategy (or mixed), seconds, people detected, `energyWh` at real scale (Σ P · Δt with readings in `auto` mode), `averagePowerW`, switch-ons |
 | `calibration.json` | Points (brightness %, average mW) of the last calibration |
 
 Simulated nights are saved in `nights.json` too (`source: simulacion`, Wh and W, with service level and power per minute) when a night reaches 06:00 in the Simulación tab or with "Calcular al instante".
 
-**CSV export** (`/api/export/<name>.csv`, buttons in Análisis): `resumen_noches`, `lecturas_maqueta`, `calibracion`, `simulacion_por_minuto`. `notebooks/analisis_alumbrado.ipynb` reads these four files.
+**CSV export** (`/api/export/<name>.csv`, buttons in Análisis): `resumen_noches`, `lecturas_maqueta`, `calibracion`, `simulacion_por_minuto`. The Colab notebook `practica_cp2_alumbrado_grupo10.ipynb` (Google Drive, class practices folder) reads these four files.

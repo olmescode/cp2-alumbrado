@@ -12,6 +12,10 @@ function energy(powers, timeStep = 1) {
   return total / 3600;
 }
 
+function realScale(milliwatts) {
+  return (milliwatts * Config.POWER_SLOPE) / Config.LED_FULL_MW;
+}
+
 function linearRegression(points) {
   const count = points.length;
   let sumX = 0;
@@ -36,6 +40,6 @@ function linearRegression(points) {
   };
 }
 
-const Energy = { power, energy, linearRegression };
+const Energy = { power, energy, realScale, linearRegression };
 
 export default Energy;

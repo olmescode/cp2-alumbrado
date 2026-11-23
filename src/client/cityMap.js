@@ -87,7 +87,7 @@ function template() {
     <g class="walkers"></g>
     ${sensorMarkup('pirA')}${sensorMarkup('pirB')}${lamps}
   </svg>
-  <div class="map-message" hidden><strong></strong><span></span></div>`;
+  <div class="map-message" hidden><strong></strong></div>`;
 }
 
 function pointOnRoute(route, meters) {
@@ -133,10 +133,9 @@ class CityMap {
     this.walkers.innerHTML = dots;
   }
 
-  showMessage(title, detail) {
+  showMessage(title) {
     this.message.hidden = !title;
     this.message.querySelector('strong').textContent = title;
-    this.message.querySelector('span').textContent = detail;
   }
 
   destroy() {

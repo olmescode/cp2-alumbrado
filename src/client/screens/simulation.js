@@ -7,10 +7,9 @@ import CityMap from '../cityMap.js';
 import Labels from '../labels.js';
 import ScreenLayout from '../screenLayout.js';
 
-const SPEEDS = { 60: '×60 (12 min)', 720: '×720 (1 min)', 3600: '×3600 (12 s)' };
+const SPEEDS = { 60: '×60', 720: '×720', 3600: '×3600' };
 const MANUAL_ROUTES = { A1: [Config.ROUTES[0], Config.ROUTES[2]], B3: [Config.ROUTES[1], Config.ROUTES[3]] };
 const RENDER_EVERY_MS = 100;
-const READY_STATUS = 'Al llegar a las 06:00 la noche se guarda en Análisis. Calcular al instante resuelve la noche completa sin animación.';
 
 const view = { element: null, map: null, chart: null };
 const night = {
@@ -23,14 +22,13 @@ function controls() {
     <div class="actions">
       <button class="button primary" data-action="toggle">Reproducir</button>
       <button class="button" data-action="restart">Reiniciar</button>
-      <button class="button" data-action="instant">Calcular al instante</button>
     </div>
     <div class="control"><span>Velocidad</span>${Labels.segmented('speed', SPEEDS, '720')}</div>
     <div class="control"><span>Estrategia</span>${Labels.segmented('strategy', Labels.STRATEGIES, 'adaptive')}</div>
-    <div class="control"><span>Noche (5, 20 o 60 personas)</span>${Labels.segmented('scenario', Labels.SCENARIOS, 'normal')}</div>
-    <div class="control"><span>Hacer pasar a una persona</span><div class="actions">
-      <button class="button" data-action="person" data-entrance="A1">Por PIR A</button>
-      <button class="button" data-action="person" data-entrance="B3">Por PIR B</button>
+    <div class="control"><span>Noche</span>${Labels.segmented('scenario', Labels.SCENARIOS, 'normal')}</div>
+    <div class="control"><span>Persona</span><div class="actions">
+      <button class="button" data-action="person" data-entrance="A1">PIR A</button>
+      <button class="button" data-action="person" data-entrance="B3">PIR B</button>
     </div></div>`;
 }
 
@@ -53,7 +51,6 @@ function restart() {
   for (const walker of Scenarios.walkers(Config.SCENARIOS[night.scenario])) {
     addWalker(walker);
   }
-  bind('status').textContent = READY_STATUS;
   render();
 }
 
@@ -67,19 +64,13 @@ function polesAt(time) {
   return NightSimulator.snapshot(night.strategy, NightSimulator.activePlans(night.spans, time), time);
 }
 
-async function saveNight(run) {
-  await fetch('/api/simulations', {
+function saveNight() {
+  const run = NightSimulator.simulateWalkers(night.strategy, night.walkers);
+  fetch('/api/simulations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...run, scenario: night.scenario }),
   });
-  bind('status').textContent = `Noche guardada en Análisis: ${Labels.number(run.energyWh, 0)} Wh con ${run.people} personas.`;
-}
-
-function finishNight() {
-  night.playing = false;
-  render();
-  saveNight(NightSimulator.simulateWalkers(night.strategy, night.walkers));
 }
 
 function advance(seconds) {
@@ -92,22 +83,14 @@ function advance(seconds) {
     night.minuteEnergy += watts * step;
     night.time += step;
     if (Math.floor(night.time / 60) > minuteBefore) {
-      night.samples.push({ label: NightSimulator.clock(minuteBefore * 60), power: night.minuteEnergy / 60 });
+      night.samples.push({ label: NightSimulator.clock(minuteBefore * 60), watts: night.minuteEnergy / 60 });
       night.minuteEnergy = 0;
     }
   }
-  if (night.time >= Config.NIGHT_SECONDS) finishNight();
-}
-
-function calculateInstantly() {
-  restart();
-  const run = NightSimulator.simulateWalkers(night.strategy, night.walkers);
-  night.time = Config.NIGHT_SECONDS;
-  night.energy = run.energyWh;
-  for (let minute = 0; minute < run.powerPerMinute.length; minute++) {
-    night.samples.push({ label: NightSimulator.clock(minute * 60), power: run.powerPerMinute[minute] });
-  }
-  saveNight(run);
+  if (night.time < Config.NIGHT_SECONDS) return;
+  night.playing = false;
+  render();
+  saveNight();
 }
 
 function walkingNow() {
@@ -131,7 +114,7 @@ function renderChart() {
   const values = [];
   for (const sample of night.samples) {
     labels.push(sample.label);
-    values.push(sample.power);
+    values.push(sample.watts);
   }
   view.chart.data.labels = labels;
   view.chart.data.datasets = [Charts.series('Potencia', values, Labels.COLORS[night.strategy], { stepped: true, fill: 'origin', backgroundColor: 'rgb(255 179 64 / 0.15)' })];
@@ -143,8 +126,8 @@ function render() {
   const walking = walkingNow();
   view.map.update({ isNight: true, poles, walkers: walking, sensors: { pirA: 0, pirB: 0 } });
   bind('clock').textContent = NightSimulator.clock(night.time);
-  bind('info').textContent = walking.length === 1 ? '1 persona caminando' : `${walking.length} personas caminando`;
-  ScreenLayout.renderNow(view.element, { power: NightSimulator.totalPower(poles), energy: night.energy, people: peopleSoFar(), poles, unit: 'W' });
+  bind('info').textContent = walking.length === 1 ? '1 caminando' : `${walking.length} caminando`;
+  ScreenLayout.renderNow(view.element, { watts: NightSimulator.totalPower(poles), energyWh: night.energy, people: peopleSoFar(), poles });
   view.element.querySelector('[data-action="toggle"]').textContent = night.playing ? 'Pausar' : 'Reproducir';
   Labels.markSelected(view.element, 'speed', String(night.speed));
   Labels.markSelected(view.element, 'strategy', night.strategy);
@@ -159,7 +142,6 @@ function onClick(event) {
   const action = button.dataset.action;
   if (action === 'toggle') night.playing = !night.playing && night.time < Config.NIGHT_SECONDS;
   if (action === 'restart') restart();
-  if (action === 'instant') calculateInstantly();
   if (action === 'person') addPerson(button.dataset.entrance);
   if (group === 'speed') night.speed = Number(button.dataset.key);
   if (group === 'strategy') {
@@ -187,15 +169,7 @@ function frame(now) {
 
 function start() {
   view.element = document.getElementById('simulation');
-  view.element.innerHTML = ScreenLayout.template({
-    phase: 'Noche simulada',
-    unit: 'W',
-    nowHint: 'Calculado con el modelo de consumo a escala real: 100 W por poste al 100 %.',
-    controlsTitle: 'Control de la simulación',
-    controls: controls(),
-    status: READY_STATUS,
-    chartHint: 'Potencia media de cada minuto simulado. A ×720 la noche dura 1 minuto, igual que en la maqueta.',
-  });
+  view.element.innerHTML = ScreenLayout.template({ phase: 'Noche simulada', controls: controls() });
   view.map = new CityMap(bind('map'));
   view.chart = Charts.lineChart(bind('chart'), 'W');
   view.element.addEventListener('click', onClick);

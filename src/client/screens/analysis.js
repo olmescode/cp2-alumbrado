@@ -6,46 +6,28 @@ import Labels from '../labels.js';
 
 const SOURCES = { simulacion: 'Simulación', maqueta: 'Maqueta' };
 const SOURCE_COLORS = { simulacion: '#5e5ce6', maqueta: '#ffb340' };
-const EXPORTS = [
-  ['resumen_noches', 'Resumen de noches', 'Una fila por noche de la maqueta o de la simulación: estrategia, personas, energía, potencia media.'],
-  ['lecturas_maqueta', 'Lecturas de la maqueta', 'Todas las lecturas del ESP32 (cada 0,5 s) de las noches registradas.'],
-  ['calibracion', 'Calibración del consumo', 'Brillo (%) y potencia medida (mW) de la última calibración.'],
-  ['simulacion_por_minuto', 'Simulaciones por minuto', 'Potencia media de cada minuto de cada noche simulada.'],
-];
 
 const view = { element: null, savingsChart: null, regressionChart: null, origin: 'A1' };
 
 function template() {
-  let exportButtons = '';
-  for (const [name, title, detail] of EXPORTS) {
-    exportButtons += `<a class="export glass" href="/api/export/${name}.csv" download><strong>${title}</strong><span>${detail}</span></a>`;
-  }
   return `
     <article class="card glass">
       <h2>Comparación de estrategias</h2>
-      <p class="hint">Ahorro de cada estrategia frente a la permanente: 1 − potencia media de la estrategia / potencia media de la permanente, calculado por separado con las noches de la maqueta y con las de la simulación.</p>
       <div class="chart"><canvas data-bind="savings-chart"></canvas></div>
       <div class="table-scroll"><table data-bind="savings-table"></table></div>
     </article>
     <article class="card glass">
       <h2>Noches registradas</h2>
-      <p class="hint">Las noches de la maqueta empiezan al tapar el LDR. Las de la simulación se guardan al llegar a las 06:00. Energía = Σ P · Δt.</p>
       <div data-bind="nights"></div>
     </article>
     <div class="columns even">
       <article class="card glass">
         <h2>Modelo de consumo</h2>
-        <p class="hint">Recta potencia = a + b · brillo ajustada por mínimos cuadrados con la calibración de la maqueta.</p>
         <div class="figures" data-bind="figures"></div>
         <div class="chart"><canvas data-bind="regression-chart"></canvas></div>
       </article>
       <article class="card glass" data-bind="dijkstra"></article>
-    </div>
-    <article class="card glass">
-      <h2>Exportar datos</h2>
-      <p class="hint">Archivos CSV para analizarlos fuera de la app, por ejemplo con el notebook de Colab del proyecto (notebooks/analisis_alumbrado.ipynb).</p>
-      <div class="exports">${exportButtons}</div>
-    </article>`;
+    </div>`;
 }
 
 function bind(name) {
@@ -58,7 +40,7 @@ function groupBySource(nights) {
     if (night.mixedStrategies) continue;
     const group = groups[night.source];
     const totals = group[night.strategy] || { power: 0, service: 0, count: 0 };
-    group[night.strategy] = { power: totals.power + night.averagePower, service: totals.service + (night.serviceLevel || 0), count: totals.count + 1 };
+    group[night.strategy] = { power: totals.power + night.averagePowerW, service: totals.service + (night.serviceLevel || 0), count: totals.count + 1 };
   }
   return groups;
 }
@@ -71,7 +53,7 @@ function savings(group, strategy) {
 }
 
 function percentText(percent) {
-  return Number.isNaN(percent) ? 'Faltan noches' : `${Labels.number(percent, 1)} %`;
+  return Number.isNaN(percent) ? '—' : `${Labels.number(percent, 1)} %`;
 }
 
 function renderSavings(nights) {
@@ -100,12 +82,12 @@ function renderSavings(nights) {
       <td class="number">${percentText(savings(groups.simulacion, strategy))}</td><td class="number">${percentText(savings(groups.maqueta, strategy))}</td>
       <td class="number">${service}</td><td class="number">${counts}</td></tr>`;
   }
-  bind('savings-table').innerHTML = `<thead><tr><th>Estrategia</th><th class="number">Ahorro simulación</th><th class="number">Ahorro maqueta</th><th class="number">Servicio (simulación)</th><th class="number">Noches sim. / maqueta</th></tr></thead><tbody>${rows}</tbody>`;
+  bind('savings-table').innerHTML = `<thead><tr><th>Estrategia</th><th class="number">Ahorro simulado</th><th class="number">Ahorro maqueta</th><th class="number">Servicio</th><th class="number">Noches</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderNights(nights) {
   if (nights.length === 0) {
-    bind('nights').innerHTML = '<p class="empty">Aún no hay noches. Tapa el LDR de la maqueta durante un minuto, o corre una noche en Simulación.</p>';
+    bind('nights').innerHTML = '<p class="empty">Sin noches registradas</p>';
     return;
   }
   let rows = '';
@@ -115,7 +97,7 @@ function renderNights(nights) {
     const download = night.file ? `<a href="/data/nights/${night.file}" download>CSV</a>` : '';
     rows += `<tr><td>${SOURCES[night.source]}</td><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
       <td class="number">${night.people}</td><td class="number">${duration}</td>
-      <td class="number">${Labels.number(night.energy, 2)} ${night.unit}h</td><td class="number">${Labels.number(night.averagePower, 1)} ${night.unit}</td>
+      <td class="number">${Labels.number(night.energyWh, 1)} Wh</td><td class="number">${Labels.number(night.averagePowerW, 1)} W</td>
       <td class="number">${night.switchOns}</td><td>${download}</td></tr>`;
   }
   bind('nights').innerHTML = `<div class="table-scroll"><table>
@@ -126,15 +108,15 @@ function renderNights(nights) {
 function renderCalibration(calibration) {
   const points = calibration.points;
   if (points.length < 3) {
-    bind('figures').innerHTML = '<p class="empty">Sin calibración. En Monitoreo, pulsa Calibrar consumo con la maqueta conectada.</p>';
+    bind('figures').innerHTML = '<p class="empty">Sin calibración</p>';
     view.regressionChart.data.datasets = [];
     view.regressionChart.update();
     return;
   }
   const fit = Energy.linearRegression(points);
   bind('figures').innerHTML = `
-    <div><strong>${Labels.number(fit.intercept, 2)} mW</strong><span>a, consumo con brillo 0</span></div>
-    <div><strong>${Labels.number(fit.slope, 3)} mW/%</strong><span>b, por cada % de brillo</span></div>
+    <div><strong>${Labels.number(fit.intercept, 2)} mW</strong><span>a</span></div>
+    <div><strong>${Labels.number(fit.slope, 3)} mW/%</strong><span>b</span></div>
     <div><strong>${Labels.number(fit.r2, 4)}</strong><span>R²</span></div>`;
   const measured = [];
   for (const [x, y] of points) {
@@ -170,8 +152,7 @@ function renderDijkstra() {
   }
   bind('dijkstra').innerHTML = `
     <h2>Modelo del grafo</h2>
-    <p class="hint">Dijkstra da la distancia en metros desde la entrada hasta cada poste. A 1,4 m/s se obtiene cuándo llega la persona y el poste se enciende ${Config.ANTICIPATION_TIME} s antes.</p>
-    ${Labels.segmented('origin', { A1: 'Entra por A1', B3: 'Entra por B3' }, view.origin)}
+    ${Labels.segmented('origin', { A1: 'Desde A1', B3: 'Desde B3' }, view.origin)}
     <div class="table-scroll"><table>
       <thead><tr><th>Paso</th><th>Visitado</th>${header}</tr></thead>
       <tbody>${rows}<tr><td colspan="2">Llegada</td>${arrivals}</tr></tbody>

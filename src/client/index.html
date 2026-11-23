@@ -11,11 +11,22 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <h1>Alumbrado adaptativo</h1>
-        <p>Grupo 10, Modelos y Simulación</p>
+      <h1>Alumbrado adaptativo</h1>
+      <div class="topbar-actions">
+        <span class="pill" id="board-status">Sin conexión con la placa</span>
+        <div class="menu">
+          <button class="icon-button glass" id="menu-button" aria-label="Exportar datos" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+          </button>
+          <div class="menu-panel glass" id="menu-panel" hidden>
+            <span class="menu-title">Exportar CSV</span>
+            <a href="/api/export/resumen_noches.csv" download>Resumen de noches</a>
+            <a href="/api/export/lecturas_maqueta.csv" download>Lecturas de la maqueta</a>
+            <a href="/api/export/calibracion.csv" download>Calibración</a>
+            <a href="/api/export/simulacion_por_minuto.csv" download>Simulaciones</a>
+          </div>
+        </div>
       </div>
-      <span class="pill" id="board-status">Sin conexión con la placa</span>
     </header>
 
     <main>

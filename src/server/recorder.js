@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import Energy from '../shared/energy.js';
 import NightSimulator from '../shared/nightSimulator.js';
 
 const DATA_FOLDER = new URL('../../data/', import.meta.url);
@@ -8,7 +9,7 @@ const CALIBRATION_FILE = new URL('calibration.json', DATA_FOLDER);
 const MAX_STEP_SECONDS = 2;
 const MINIMUM_NIGHT_SECONDS = 5;
 const COLUMNS = ['time', 'clock', 'strategy', 'mode', 'isNight', 'ldrPercent', 'pirA', 'pirB', 'brightness', 'states', 'currentMa', 'voltage', 'powerMw'];
-const SUMMARY_COLUMNS = ['source', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energy', 'averagePower', 'unit', 'switchOns', 'serviceLevel'];
+const SUMMARY_COLUMNS = ['source', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energyWh', 'averagePowerW', 'switchOns', 'serviceLevel'];
 
 const Session = {
   night: null,
@@ -53,7 +54,7 @@ function saveNight(night) {
 function startNight(reading) {
   const startedAt = localTime();
   const file = `night_${startedAt.replace(/\D/g, '')}.csv`;
-  Session.night = { source: 'maqueta', startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energy: 0, people: 0, switchOns: 0, unit: 'mW' };
+  Session.night = { source: 'maqueta', startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energyWh: 0, people: 0, switchOns: 0 };
   mkdirSync(NIGHTS_FOLDER, { recursive: true });
   appendFileSync(new URL(file, NIGHTS_FOLDER), `${COLUMNS.join(',')}\n`);
 }
@@ -62,7 +63,7 @@ function finishNight() {
   const night = Session.night;
   Session.night = null;
   if (night.seconds < MINIMUM_NIGHT_SECONDS) return;
-  saveNight({ ...night, averagePower: (night.energy * 3600) / night.seconds });
+  saveNight({ ...night, averagePowerW: (night.energyWh * 3600) / night.seconds });
 }
 
 function countDetections(reading) {
@@ -90,7 +91,7 @@ function addToNight(reading, seconds) {
   if (reading.mode === 'auto') {
     night.switchOns += countSwitchOns(reading);
     night.seconds += seconds;
-    night.energy += (reading.powerMw * seconds) / 3600;
+    night.energyWh += (Energy.realScale(reading.powerMw) * seconds) / 3600;
   }
   appendFileSync(new URL(night.file, NIGHTS_FOLDER), csvRow(reading));
 }
@@ -134,9 +135,8 @@ function recordSimulation(run) {
     scenario: run.scenario,
     people: run.people,
     seconds: 12 * 3600,
-    energy: run.energyWh,
-    averagePower: run.energyWh / 12,
-    unit: 'W',
+    energyWh: run.energyWh,
+    averagePowerW: run.energyWh / 12,
     switchOns: run.switchOns,
     serviceLevel: run.serviceLevel,
     powerPerMinute: run.powerPerMinute,

@@ -39,7 +39,6 @@ src/
 └── client/       # Web app: main.js, connection.js, cityMap.js, charts.js, labels.js, screenLayout.js, screens/
 firmware/         # Arduino sketch (C++ port of src/shared with the same names)
 scripts/          # One-off tools (results export)
-notebooks/        # Colab notebook that analyses the exported CSV like the class practices
 tests/            # node --test
 data/             # Generated output: logs/ and results/
 docs/             # system.md, architecture.md, reference/ (assignment PDF, plan, prior context)
@@ -70,7 +69,9 @@ Classes extend functionality through composition rather than `extends`. Child ob
 - **Imperative**: plain DOM, with no framework. Chart.js for charts.
 - **Screens** (`Monitor`, `Analysis`, `Simulation`) are singletons in `screens/`, one per tab, each with `start()` and `show()`.
 - **Components** are classes with `destroy()` used by more than one screen (`CityMap`).
-- **Design**: dark background with liquid glass cards and a floating glass tab bar at the bottom (Apple style). The map follows the photo of the physical model.
+- **Design**: dark background with liquid glass cards and a floating glass tab bar at the bottom (Apple style). The map follows the photo of the physical model. CSV exports live in the small menu next to the board status, which only shows in Monitoreo.
+- **Apple Notes rule**: simple purpose, simple architecture, simple design, simple implementation. Cut taglines, helper text and secondary labels. If a screen needs them to make sense, fix the layout. Every decision should improve the user, developer and agent experience at once, without breaking anything.
+- **Units**: everything on screen is real scale (W, Wh). Board readings in mW are converted with `Energy.realScale` (100 W per luminaire / `LED_FULL_MW` = 90 mW per LED).
 - **Language**: all user-facing text is in Spanish. Code, files, folders and docs are in English.
 - **Design**: use the `frontend-design` skill. The app is responsive for laptop and phone (390 px).
 
