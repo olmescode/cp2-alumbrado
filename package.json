@@ -9,5 +9,10 @@
     "export": "node scripts/exportResults.js",
     "start": "node src/server/main.js",
     "emulator": "node src/emulator/main.js"
+  },
+  "dependencies": {
+    "chart.js": "^4.6.1",
+    "express": "^4.22.3",
+    "ws": "^8.23.0"
   }
 }
