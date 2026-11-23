@@ -2,14 +2,15 @@ import Store from './store.js';
 
 const RECONNECT_MS = 2000;
 const SAMPLE_LIMIT = 240;
+const MAX_STEP_SECONDS = 2;
 
 const accumulate = (reading) => {
   const state = Store.state;
-  const seconds = state.lastReadingAt ? (Date.now() - state.lastReadingAt) / 1000 : 0;
+  const seconds = state.lastReadingAt ? Math.min((Date.now() - state.lastReadingAt) / 1000, MAX_STEP_SECONDS) : 0;
   const energy = state.energy + (reading.powerMw * seconds) / 3600;
   const observed = { ...state.observed };
   const strategyTotals = observed[reading.strategy] || { energy: 0, seconds: 0 };
-  observed[reading.strategy] = { energy: strategyTotals.energy + (reading.powerMw * seconds) / 3600, seconds: strategyTotals.seconds + seconds };
+  if (reading.mode !== 'sweep') observed[reading.strategy] = { energy: strategyTotals.energy + (reading.powerMw * seconds) / 3600, seconds: strategyTotals.seconds + seconds };
   const sweep = { ...state.sweep };
   if (reading.mode === 'sweep') {
     const level = reading.brightness[0];

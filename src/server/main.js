@@ -72,7 +72,8 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   const interfaces = Object.values(networkInterfaces());
-  const addresses = interfaces.flat().filter((network) => network.family === 'IPv4' && !network.internal);
+  const networks = interfaces.flat();
+  const addresses = networks.filter((network) => network.family === 'IPv4' && !network.internal);
   console.log(`Dashboard: http://localhost:${PORT}`);
   for (const network of addresses) console.log(`Phone / ESP32 (SERVER_IP): ${network.address}  ->  http://${network.address}:${PORT}`);
 });

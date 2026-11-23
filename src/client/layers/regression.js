@@ -31,7 +31,8 @@ const Regression = {
   },
 
   render: (state) => {
-    const points = Object.entries(state.sweep).map(([level, point]) => [Number(level), point.total / point.count]);
+    const sweepLevels = Object.entries(state.sweep);
+    const points = sweepLevels.map(([level, point]) => [Number(level), point.total / point.count]);
     const signature = JSON.stringify(points);
     if (signature === Regression.drawn) return;
     Regression.drawn = signature;

@@ -44,6 +44,11 @@ Para que el PIR solo vea su calle:
 
 Si usan sensores FC-51 en lugar de PIR, cambia `PIR_ACTIVE_LEVEL` a `LOW`.
 
+Para calibrar el LDR el día de la exposición:
+
+1. Mira la "Luz ambiente (LDR)" en el dashboard dos veces: primero con la luz del salón encendida y después tapando el LDR.
+2. Ajusta `NIGHT_THRESHOLD` y `DAY_THRESHOLD` en el firmware para que queden entre esos dos valores.
+
 ## Estructura
 
 | Carpeta | Contenido |

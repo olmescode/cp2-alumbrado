@@ -45,7 +45,8 @@ const template = () => {
       <text class="pole-state" x="${x + (pole[0] === 'A' ? 0 : 20)}" y="${y + (pole[0] === 'A' ? -19 : 11)}"></text>
     </g>`;
   });
-  const sensors = Object.entries(SENSORS).map(([sensor, [pole, label, [offsetX, offsetY]]]) => {
+  const sensorEntries = Object.entries(SENSORS);
+  const sensors = sensorEntries.map(([sensor, [pole, label, [offsetX, offsetY]]]) => {
     const [x, y] = NODES[pole];
     return `<g data-sensor="${sensor}"><circle class="sensor" cx="${x + offsetX}" cy="${y + offsetY}" r="9"/><text class="sensor-name" x="${x + offsetX}" y="${y + offsetY + 26}">${label}</text></g>`;
   });
@@ -69,7 +70,8 @@ const CityMap = {
     element.dataset.day = String(!state.isNight);
     state.poles.forEach((pole, index) => {
       const group = element.querySelector(`[data-pole="${Config.POLES[index]}"]`);
-      group.querySelector('.halo').setAttribute('r', String(pole.brightness * 70));
+      const halo = group.querySelector('.halo');
+      halo.setAttribute('r', String(pole.brightness * 70));
       group.querySelector('.lamp').style.fill = pole.brightness > 0 ? `color-mix(in srgb, #ffb340 ${40 + pole.brightness * 60}%, #3a4658)` : '';
       group.querySelector('.pole-state').textContent = `${Labels.states[pole.state]} ${Math.round(pole.brightness * 100)} %`;
     });

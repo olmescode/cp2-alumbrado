@@ -5,7 +5,8 @@ const LED_NOMINAL_MW = 90;
 
 const expectedPower = (state) => {
   const levels = state.poles.map((pole) => pole.brightness * 100);
-  const points = Object.entries(state.sweep).map(([level, point]) => [Number(level), point.total / point.count]);
+  const sweepLevels = Object.entries(state.sweep);
+  const points = sweepLevels.map(([level, point]) => [Number(level), point.total / point.count]);
   const average = levels.reduce((total, level) => total + level, 0) / Math.max(levels.length, 1);
   if (points.length < 3) return (LED_NOMINAL_MW * average * levels.length) / 100;
   const fit = Energy.linearRegression(points);

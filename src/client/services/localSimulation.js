@@ -10,7 +10,10 @@ import Store from './store.js';
 const PUBLISH_EVERY_MS = 100;
 const MANUAL_ROUTES = { A1: [Config.ROUTES[0], Config.ROUTES[2]], B3: [Config.ROUTES[1], Config.ROUTES[3]] };
 
-const routeLength = (route) => StreetGraph.routeArrivals(route, 0).at(-1).time;
+const routeLength = (route) => {
+  const arrivals = StreetGraph.routeArrivals(route, 0);
+  return arrivals[arrivals.length - 1].time;
+};
 
 const LocalSimulation = {
   time: 0,

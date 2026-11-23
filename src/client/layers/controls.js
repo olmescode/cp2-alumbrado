@@ -6,7 +6,8 @@ import Store from '../services/store.js';
 const SPEEDS = [10, 60, 300, 1200];
 
 const segmented = (group, options) => {
-  const buttons = Object.entries(options).map(([key, label]) => `<button data-group="${group}" data-key="${key}">${label}</button>`);
+  const optionEntries = Object.entries(options);
+  const buttons = optionEntries.map(([key, label]) => `<button data-group="${group}" data-key="${key}">${label}</button>`);
   return `<div class="segmented wide">${buttons.join('')}</div>`;
 };
 

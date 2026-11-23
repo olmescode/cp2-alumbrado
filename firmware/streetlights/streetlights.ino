@@ -42,8 +42,8 @@ struct Plan {
   bool used;
 };
 
-enum State { Off, Base, Hold, Active };
-const char *STATE_NAMES[] = {"Off", "Base", "Hold", "Active"};
+enum State { Off, Base, Hold, Active, Fixed };
+const char *STATE_NAMES[] = {"Off", "Base", "Hold", "Active", "Fixed"};
 
 Adafruit_INA219 ina219;
 WebSocketsClient socket;
@@ -111,10 +111,12 @@ float scheduledLevel(float time) {
 
 float brightnessOf(int pole, float time, State &state) {
   state = stateAt(pole, time);
-  if (mode == "sweep") return min((millis() - sweepStartedAt) / SWEEP_STEP_MS, 10UL) / 10.0;
-  if (strategy == "permanent") return isNight ? 1 : 0;
-  if (strategy == "scheduled") return isNight ? scheduledLevel(time) : 0;
-  return state == Off ? 0 : state == Base ? BASE_LEVEL : 1;
+  float level = state == Off ? 0 : state == Base ? BASE_LEVEL : 1;
+  if (strategy == "permanent") level = isNight ? 1 : 0;
+  if (strategy == "scheduled") level = isNight ? scheduledLevel(time) : 0;
+  if (mode == "sweep") level = min((millis() - sweepStartedAt) / SWEEP_STEP_MS, 10UL) / 10.0;
+  if (mode == "sweep" || strategy != "adaptive") state = level > 0 ? Fixed : Off;
+  return level;
 }
 
 String clockText(float time) {

@@ -29,12 +29,6 @@ const Device = {
 
 const nightTime = () => (((Date.now() - Device.startedAt) / 1000) * Device.timeFactor) % (24 * 3600);
 
-const clock = (time) => {
-  const minutes = Math.floor(time / 60);
-  const hour = (Config.NIGHT_START_HOUR + Math.floor(minutes / 60)) % 24;
-  return `${String(hour).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-};
-
 const detect = (sensor) => {
   Device.lastDetection[sensor] = Date.now();
   Device.plans.push(StreetGraph.lightWavePlan(Config.ENTRANCES[sensor], nightTime()));
@@ -69,29 +63,33 @@ const reading = () => {
   }
   const ldrPercent = (time < Config.NIGHT_SECONDS ? 15 : 75) + Math.random() * 4;
   Device.isNight = StateMachine.isNight(ldrPercent, Device.isNight);
-  Device.plans = Device.plans.filter((plan) => Object.values(plan).some((window) => window.baseAt > time));
+  Device.plans = Device.plans.filter((plan) => {
+    const windows = Object.values(plan);
+    return windows.some((window) => window.baseAt > time);
+  });
   const poles = NightSimulator.snapshot(Device.strategy, Device.plans, time, Device.isNight);
   const sweepLevel = Device.mode === 'sweep' ? sweepBrightness() : -1;
   const brightness = poles.map((pole) => (sweepLevel >= 0 ? sweepLevel : Math.round(pole.brightness * 100)));
-  const powerMw = brightness.reduce((total, level) => total + (LED_POWER_MW * level) / 100, 0) + (Math.random() - 0.5) * 8;
+  const noisyPower = brightness.reduce((total, level) => total + (LED_POWER_MW * level) / 100, 0) + (Math.random() - 0.5) * 8;
+  const powerMw = Math.round(Math.max(noisyPower, 0) * 10) / 10;
   const voltage = 5 + (Math.random() - 0.5) * 0.04;
   return {
     type: 'reading',
     source: 'emulator',
     timeMs: Date.now() - Device.startedAt,
-    clock: clock(time),
+    clock: NightSimulator.clock(time),
     strategy: Device.strategy,
     mode: Device.mode,
     ldrRaw: Math.round((ldrPercent * 4095) / 100),
-    ldrPercent: Number(ldrPercent.toFixed(1)),
+    ldrPercent: Math.round(ldrPercent * 10) / 10,
     isNight: Device.isNight,
     pirA: Date.now() - Device.lastDetection.pirA < PIR_HIGH_MS ? 1 : 0,
     pirB: Date.now() - Device.lastDetection.pirB < PIR_HIGH_MS ? 1 : 0,
     brightness,
-    states: poles.map((pole) => pole.state),
-    currentMa: Number((Math.max(powerMw, 0) / voltage).toFixed(1)),
-    voltage: Number(voltage.toFixed(2)),
-    powerMw: Number(Math.max(powerMw, 0).toFixed(1)),
+    states: poles.map((pole, index) => (sweepLevel >= 0 ? (brightness[index] > 0 ? 'Fixed' : 'Off') : pole.state)),
+    currentMa: Math.round((powerMw / voltage) * 10) / 10,
+    voltage: Math.round(voltage * 100) / 100,
+    powerMw,
   };
 };
 

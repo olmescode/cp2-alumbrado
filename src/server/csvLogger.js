@@ -13,23 +13,26 @@ const CsvLogger = {
   },
 
   write: (reading) => {
-    const key = `${reading.strategy}_${reading.mode}`;
+    const key = `${reading.source}_${reading.strategy}_${reading.mode}`;
     if (key !== CsvLogger.key) {
-      const localTime = new Date().toLocaleString('sv');
+      const now = new Date();
+      const localTime = now.toLocaleString('sv');
       const stamp = localTime.replace(/\D/g, '');
       CsvLogger.key = key;
       CsvLogger.file = `test_${key}_${stamp}.csv`;
       mkdirSync(folder, { recursive: true });
       appendFileSync(new URL(CsvLogger.file, folder), `${COLUMNS.join(',')}\n`);
     }
-    const cells = COLUMNS.map((column) => [reading[column]].flat().join(';'));
+    const cells = COLUMNS.map((column) => (Array.isArray(reading[column]) ? reading[column].join(';') : reading[column]));
     appendFileSync(new URL(CsvLogger.file, folder), `${cells.join(',')}\n`);
   },
 
   list: () => {
     mkdirSync(folder, { recursive: true });
-    const names = readdirSync(folder).filter((name) => name.endsWith('.csv'));
-    return names.map((name) => ({ name, bytes: statSync(new URL(name, folder)).size })).reverse();
+    const files = readdirSync(folder);
+    const names = files.filter((name) => name.endsWith('.csv'));
+    const logs = names.map((name) => ({ name, bytes: statSync(new URL(name, folder)).size }));
+    return logs.reverse();
   },
 };
 
