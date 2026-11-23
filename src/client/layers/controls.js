@@ -18,7 +18,7 @@ const SIMULATION_PANEL = `
   </div>
   <div class="field"><span>Velocidad (segundos de noche por segundo real)</span>${segmented('speed', Object.fromEntries(SPEEDS.map((speed) => [speed, `×${speed}`])))}</div>
   <div class="field"><span>Estrategia</span>${segmented('strategy', Labels.strategies)}</div>
-  <div class="field"><span>Noche</span>${segmented('scenario', { quiet: 'Tranquila (5)', normal: 'Normal (20)', busy: 'Concurrida (60)' })}</div>
+  <div class="field"><span>Noche (5, 20 o 60 personas)</span>${segmented('scenario', Labels.scenarios)}</div>
   <div class="field"><span>Hacer pasar a una persona</span><div class="row">
     <button class="button" data-action="person" data-entrance="A1">Por PIR A</button>
     <button class="button" data-action="person" data-entrance="B3">Por PIR B</button>
