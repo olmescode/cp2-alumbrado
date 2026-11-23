@@ -3,18 +3,31 @@ import Config from './config.js';
 const BRIGHTNESS = { Off: 0, Base: Config.BASE_LEVEL, Hold: 1, Active: 1 };
 const PRIORITY = ['Off', 'Base', 'Hold', 'Active'];
 
-const strongest = (states) => states.reduce((best, state) => (PRIORITY.indexOf(state) > PRIORITY.indexOf(best) ? state : best), 'Off');
+function strongest(first, second) {
+  if (PRIORITY.indexOf(second) > PRIORITY.indexOf(first)) return second;
+  return first;
+}
 
-const windowState = (window, time) => {
+function windowState(window, time) {
   if (time < window.activeFrom || time >= window.baseAt) return 'Base';
-  return time < window.holdFrom ? 'Active' : 'Hold';
-};
+  if (time < window.holdFrom) return 'Active';
+  return 'Hold';
+}
 
-const StateMachine = {
-  BRIGHTNESS,
-  strongest,
-  isNight: (ldrPercent, wasNight) => (wasNight ? ldrPercent <= Config.DAY_THRESHOLD : ldrPercent < Config.NIGHT_THRESHOLD),
-  stateAt: (windows, time, isNight) => (isNight ? strongest(['Base', ...windows.map((window) => windowState(window, time))]) : 'Off'),
-};
+function isNight(ldrPercent, wasNight) {
+  if (wasNight) return ldrPercent <= Config.DAY_THRESHOLD;
+  return ldrPercent < Config.NIGHT_THRESHOLD;
+}
+
+function stateAt(windows, time, night) {
+  if (!night) return 'Off';
+  let state = 'Base';
+  for (const window of windows) {
+    state = strongest(state, windowState(window, time));
+  }
+  return state;
+}
+
+const StateMachine = { BRIGHTNESS, isNight, stateAt };
 
 export default StateMachine;

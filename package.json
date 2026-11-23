@@ -7,8 +7,7 @@
   "scripts": {
     "test": "node --test",
     "export": "node scripts/exportResults.js",
-    "start": "node src/server/main.js",
-    "emulator": "node src/emulator/main.js"
+    "start": "node src/server/main.js"
   },
   "dependencies": {
     "chart.js": "^4.6.1",

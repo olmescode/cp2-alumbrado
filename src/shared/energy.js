@@ -1,25 +1,41 @@
 import Config from './config.js';
 
-const Energy = {
-  power: (brightness, intercept = Config.POWER_INTERCEPT, slope = Config.POWER_SLOPE) => intercept + slope * brightness,
+function power(brightness, intercept = Config.POWER_INTERCEPT, slope = Config.POWER_SLOPE) {
+  return intercept + slope * brightness;
+}
 
-  energy: (powers, timeStep = 1) => powers.reduce((total, power) => total + power * timeStep, 0) / 3600,
+function energy(powers, timeStep = 1) {
+  let total = 0;
+  for (const watts of powers) {
+    total += watts * timeStep;
+  }
+  return total / 3600;
+}
 
-  linearRegression: (points) => {
-    const count = points.length;
-    const sums = points.reduce(
-      (total, [x, y]) => ({ x: total.x + x, y: total.y + y, xy: total.xy + x * y, xx: total.xx + x * x, yy: total.yy + y * y }),
-      { x: 0, y: 0, xy: 0, xx: 0, yy: 0 },
-    );
-    const spreadX = count * sums.xx - sums.x ** 2;
-    const spreadY = count * sums.yy - sums.y ** 2;
-    const covariance = count * sums.xy - sums.x * sums.y;
-    return {
-      intercept: (sums.xx * sums.y - sums.xy * sums.x) / spreadX,
-      slope: covariance / spreadX,
-      r2: covariance ** 2 / (spreadX * spreadY),
-    };
-  },
-};
+function linearRegression(points) {
+  const count = points.length;
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  let sumYY = 0;
+  for (const [x, y] of points) {
+    sumX += x;
+    sumY += y;
+    sumXY += x * y;
+    sumXX += x * x;
+    sumYY += y * y;
+  }
+  const spreadX = count * sumXX - sumX * sumX;
+  const spreadY = count * sumYY - sumY * sumY;
+  const covariance = count * sumXY - sumX * sumY;
+  return {
+    intercept: (sumXX * sumY - sumXY * sumX) / spreadX,
+    slope: covariance / spreadX,
+    r2: (covariance * covariance) / (spreadX * spreadY),
+  };
+}
+
+const Energy = { power, energy, linearRegression };
 
 export default Energy;

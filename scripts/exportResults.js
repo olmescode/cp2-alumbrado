@@ -3,20 +3,45 @@ import Config from '../src/shared/config.js';
 import NightSimulator from '../src/shared/nightSimulator.js';
 
 const folder = new URL('../data/results/', import.meta.url);
-const scenarios = { empty: 0, ...Config.SCENARIOS };
-const scenarioEntries = Object.entries(scenarios);
-const runs = scenarioEntries.flatMap(([scenario, people]) => {
-  const comparison = NightSimulator.compare(people);
-  return comparison.map((run) => ({ scenario, ...run }));
-});
+const SCENARIOS = { empty: 0, ...Config.SCENARIOS };
 
-const summary = runs.map((run) => [run.strategy, run.scenario, run.people, run.energyWh.toFixed(2), run.savingsPercent.toFixed(2), run.serviceLevel.toFixed(2), run.switchOns]);
-const header = 'strategy,scenario,people,energyWh,savingsPercent,serviceLevel,switchOns';
-const seriesHeader = ['minute', 'clock', ...runs.map((run) => `${run.strategy}_${run.scenario}`)].join(',');
-const seriesRows = runs[0].powerPerMinute.map((_, minute) => [minute, NightSimulator.clock(minute * 60), ...runs.map((run) => run.powerPerMinute[minute].toFixed(2))].join(','));
+function runAllScenarios() {
+  const runs = [];
+  for (const [scenario, people] of Object.entries(SCENARIOS)) {
+    for (const run of NightSimulator.compare(people)) {
+      runs.push({ scenario, ...run });
+    }
+  }
+  return runs;
+}
 
+function summaryCsv(runs) {
+  const lines = ['strategy,scenario,people,energyWh,savingsPercent,serviceLevel,switchOns'];
+  for (const run of runs) {
+    lines.push([run.strategy, run.scenario, run.people, run.energyWh.toFixed(2), run.savingsPercent.toFixed(2), run.serviceLevel.toFixed(2), run.switchOns].join(','));
+  }
+  return lines.join('\n');
+}
+
+function seriesCsv(runs) {
+  const header = ['minute', 'clock'];
+  for (const run of runs) {
+    header.push(`${run.strategy}_${run.scenario}`);
+  }
+  const lines = [header.join(',')];
+  for (let minute = 0; minute < runs[0].powerPerMinute.length; minute++) {
+    const row = [minute, NightSimulator.clock(minute * 60)];
+    for (const run of runs) {
+      row.push(run.powerPerMinute[minute].toFixed(2));
+    }
+    lines.push(row.join(','));
+  }
+  return lines.join('\n');
+}
+
+const runs = runAllScenarios();
 mkdirSync(folder, { recursive: true });
-writeFileSync(new URL('results.csv', folder), [header, ...summary.map((row) => row.join(','))].join('\n'));
-writeFileSync(new URL('power_per_minute.csv', folder), [seriesHeader, ...seriesRows].join('\n'));
+writeFileSync(new URL('results.csv', folder), summaryCsv(runs));
+writeFileSync(new URL('power_per_minute.csv', folder), seriesCsv(runs));
 writeFileSync(new URL('results.json', folder), JSON.stringify({ parameters: Config, runs }, null, 2));
-console.table(runs.map(({ strategy, scenario, energyWh, savingsPercent, serviceLevel, switchOns }) => ({ strategy, scenario, energyWh, savingsPercent, serviceLevel, switchOns })));
+console.log(summaryCsv(runs));

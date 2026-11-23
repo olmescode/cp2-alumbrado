@@ -1,19 +1,41 @@
 import Config from './config.js';
 
-const Scenarios = {
-  hourlyCounts: (people) => {
-    const hours = Config.HOURLY_SHARE.map((share, hour) => ({ hour, count: Math.floor((share * people) / 100), remainder: (share * people) % 100 }));
-    const assigned = hours.reduce((total, hour) => total + hour.count, 0);
-    const byRemainder = [...hours].sort((first, second) => second.remainder - first.remainder || first.hour - second.hour);
-    for (const hour of byRemainder.slice(0, people - assigned)) hour.count += 1;
-    return hours.map((hour) => hour.count);
-  },
+function byLargestRemainder(first, second) {
+  return second.remainder - first.remainder || first.hour - second.hour;
+}
 
-  walkers: (people) => {
-    const counts = Scenarios.hourlyCounts(people);
-    const startTimes = counts.flatMap((count, hour) => Array.from({ length: count }, (_, index) => hour * 3600 + ((index + 0.5) * 3600) / count));
-    return startTimes.map((startTime, index) => ({ startTime, route: Config.ROUTES[index % Config.ROUTES.length] }));
-  },
-};
+function hourlyCounts(people) {
+  const hours = [];
+  let assigned = 0;
+  for (let hour = 0; hour < Config.HOURLY_SHARE.length; hour++) {
+    const share = Config.HOURLY_SHARE[hour] * people;
+    hours.push({ hour, count: Math.floor(share / 100), remainder: share % 100 });
+    assigned += Math.floor(share / 100);
+  }
+  const ranking = [...hours].sort(byLargestRemainder);
+  for (let index = 0; index < people - assigned; index++) {
+    ranking[index].count += 1;
+  }
+  const counts = [];
+  for (const hour of hours) {
+    counts.push(hour.count);
+  }
+  return counts;
+}
+
+function walkers(people) {
+  const counts = hourlyCounts(people);
+  const list = [];
+  for (let hour = 0; hour < counts.length; hour++) {
+    for (let index = 0; index < counts[hour]; index++) {
+      const startTime = hour * 3600 + ((index + 0.5) * 3600) / counts[hour];
+      const route = Config.ROUTES[list.length % Config.ROUTES.length];
+      list.push({ startTime, route });
+    }
+  }
+  return list;
+}
+
+const Scenarios = { hourlyCounts, walkers };
 
 export default Scenarios;
