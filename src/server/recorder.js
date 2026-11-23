@@ -87,12 +87,12 @@ function countSwitchOns(reading) {
   return switchOns;
 }
 
-function addToNight(reading, seconds) {
+function addToNight(reading, seconds, detections, switchOns) {
   const night = Session.night;
-  night.people += countDetections(reading);
+  night.people += detections;
   if (reading.strategy !== night.strategy) night.mixedStrategies = true;
   if (reading.mode === 'auto') {
-    night.switchOns += countSwitchOns(reading);
+    night.switchOns += switchOns;
     night.seconds += seconds;
     night.energyWh += (Energy.realScale(reading.powerMw) * seconds) / 3600;
   }
@@ -127,7 +127,9 @@ function record(reading) {
   }
   if (reading.isNight && !Session.night) startNight(reading);
   if (!reading.isNight && Session.night) finishNight();
-  if (Session.night) addToNight(reading, seconds);
+  const detections = countDetections(reading);
+  const switchOns = countSwitchOns(reading);
+  if (Session.night) addToNight(reading, seconds, detections, switchOns);
   return Session.night;
 }
 
