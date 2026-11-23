@@ -9,15 +9,12 @@ const char *SERVER_IP = "192.168.1.104";
 const uint16_t SERVER_PORT = 8080;
 
 const int POLE_COUNT = 6;
-const char *POLES[POLE_COUNT] = {"A1", "A2", "A3", "B1", "B2", "B3"};
 const int LED_PINS[POLE_COUNT] = {13, 14, 16, 17, 18, 19};
-const int PIR_A_PIN = 27;
-const int PIR_B_PIN = 26;
+const int PIR_PINS[2] = {27, 26};
 const int PIR_ACTIVE_LEVEL = HIGH;
+const int ENTRANCES[2] = {0, 5};
 const int LDR_PIN = 34;
 const int STREETS[5][3] = {{0, 1, 30}, {1, 2, 30}, {1, 3, 30}, {3, 4, 30}, {4, 5, 30}};
-const int ENTRANCE_A = 0;
-const int ENTRANCE_B = 5;
 
 const float BASE_LEVEL = 0.2;
 const float HOLD_TIME = 30;
@@ -25,11 +22,17 @@ const float ANTICIPATION_TIME = 10;
 const float WALKING_SPEED = 1.4;
 const float NIGHT_THRESHOLD = 30;
 const float DAY_THRESHOLD = 40;
-const float DEFAULT_TIME_FACTOR = 10;
-const float NIGHT_SECONDS = 12 * 3600.0;
+const float CLOCK_FACTOR = 720;
+const float WAVE_FACTOR = 10;
+const float HALF_DAY_SECONDS = 12 * 3600.0;
 const unsigned long READING_INTERVAL_MS = 500;
-const unsigned long SWEEP_STEP_MS = 3000;
+const unsigned long LAMP_TEST_MS = 5000;
+const unsigned long CALIBRATION_STEP_MS = 3000;
+const unsigned long PIR_SIGNAL_MS = 2000;
 const int MAX_PLANS = 8;
+
+enum State { Off, Base, Hold, Active, Fixed };
+const char *STATE_NAMES[] = {"Off", "Base", "Hold", "Active", "Fixed"};
 
 struct Window {
   float activeFrom;
@@ -42,30 +45,31 @@ struct Plan {
   bool used;
 };
 
-enum State { Off, Base, Hold, Active, Fixed };
-const char *STATE_NAMES[] = {"Off", "Base", "Hold", "Active", "Fixed"};
-
 Adafruit_INA219 ina219;
 WebSocketsClient socket;
 Plan plans[MAX_PLANS];
 float distances[2][POLE_COUNT];
 String strategy = "adaptive";
-String mode = "live";
-float timeFactor = DEFAULT_TIME_FACTOR;
-unsigned long startedAt = 0;
-unsigned long sweepStartedAt = 0;
-unsigned long lastReadingAt = 0;
-unsigned long lastDetection[2] = {0, 0};
-int previousPir[2] = {LOW, LOW};
-int nextPlan = 0;
-bool isNight = true;
+String mode = "auto";
+bool isNight = false;
 bool inaReady = false;
+int nextPlan = 0;
+int previousPir[2] = {LOW, LOW};
+unsigned long lastDetection[2] = {0, 0};
+unsigned long phaseStartedAt = 0;
+unsigned long modeStartedAt = 0;
+unsigned long lastReadingAt = 0;
 
 void dijkstra(int origin, float *result) {
   float graph[POLE_COUNT][POLE_COUNT] = {};
-  for (auto &street : STREETS) graph[street[0]][street[1]] = graph[street[1]][street[0]] = street[2];
+  for (auto &street : STREETS) {
+    graph[street[0]][street[1]] = street[2];
+    graph[street[1]][street[0]] = street[2];
+  }
   bool visited[POLE_COUNT] = {};
-  for (int node = 0; node < POLE_COUNT; node++) result[node] = node == origin ? 0 : INFINITY;
+  for (int node = 0; node < POLE_COUNT; node++) {
+    result[node] = node == origin ? 0 : INFINITY;
+  }
   for (int step = 0; step < POLE_COUNT; step++) {
     int current = -1;
     for (int node = 0; node < POLE_COUNT; node++) {
@@ -78,8 +82,20 @@ void dijkstra(int origin, float *result) {
   }
 }
 
-float nightTime() {
-  return fmod((millis() - startedAt) / 1000.0 * timeFactor, 24 * 3600.0);
+float waveTime() {
+  return millis() / 1000.0 * WAVE_FACTOR;
+}
+
+float phaseSeconds() {
+  return min((millis() - phaseStartedAt) / 1000.0f * CLOCK_FACTOR, HALF_DAY_SECONDS);
+}
+
+String clockText() {
+  int minutes = int(phaseSeconds() / 60);
+  int hour = ((isNight ? 18 : 6) + minutes / 60) % 24;
+  char text[6];
+  snprintf(text, sizeof(text), "%02d:%02d", hour, minutes % 60);
+  return String(text);
 }
 
 void lightWavePlan(int entrance, float startTime) {
@@ -92,91 +108,106 @@ void lightWavePlan(int entrance, float startTime) {
   plan.used = true;
 }
 
+State windowState(Window &window, float time) {
+  if (time < window.activeFrom || time >= window.baseAt) return Base;
+  if (time < window.holdFrom) return Active;
+  return Hold;
+}
+
 State stateAt(int pole, float time) {
   if (!isNight) return Off;
   State strongest = Base;
   for (auto &plan : plans) {
-    if (!plan.used) continue;
-    Window &window = plan.windows[pole];
-    State windowState = time < window.activeFrom || time >= window.baseAt ? Base : time < window.holdFrom ? Active : Hold;
-    strongest = max(strongest, windowState);
+    if (plan.used) strongest = max(strongest, windowState(plan.windows[pole], time));
   }
   return strongest;
 }
 
-float scheduledLevel(float time) {
-  int hour = (18 + int(time / 3600)) % 24;
-  return hour >= 23 || hour < 5 ? 0.5 : 1;
+float scheduledLevel() {
+  int hour = (18 + int(phaseSeconds() / 3600)) % 24;
+  if (hour >= 23 || hour < 5) return 0.5;
+  return 1;
 }
 
-float brightnessOf(int pole, float time, State &state) {
-  state = stateAt(pole, time);
-  float level = state == Off ? 0 : state == Base ? BASE_LEVEL : 1;
-  if (strategy == "permanent") level = isNight ? 1 : 0;
-  if (strategy == "scheduled") level = isNight ? scheduledLevel(time) : 0;
-  if (mode == "sweep") level = min((millis() - sweepStartedAt) / SWEEP_STEP_MS, 10UL) / 10.0;
-  if (mode == "sweep" || strategy != "adaptive") state = level > 0 ? Fixed : Off;
+float strategyLevel(State state) {
+  if (!isNight) return 0;
+  if (strategy == "permanent") return 1;
+  if (strategy == "scheduled") return scheduledLevel();
+  if (state == Base) return BASE_LEVEL;
+  return 1;
+}
+
+float poleLevel(int pole, State &state) {
+  state = stateAt(pole, waveTime());
+  if (mode == "lampTest") {
+    state = Fixed;
+    return 1;
+  }
+  if (mode == "calibration") {
+    state = Fixed;
+    return min((millis() - modeStartedAt) / CALIBRATION_STEP_MS, 10UL) / 10.0;
+  }
+  float level = strategyLevel(state);
+  if (strategy != "adaptive") state = level > 0 ? Fixed : Off;
   return level;
 }
 
-String clockText(float time) {
-  int minutes = int(time / 60);
-  char text[6];
-  snprintf(text, sizeof(text), "%02d:%02d", (18 + minutes / 60) % 24, minutes % 60);
-  return String(text);
+void updateMode() {
+  unsigned long elapsed = millis() - modeStartedAt;
+  if (mode == "lampTest" && elapsed > LAMP_TEST_MS) mode = "auto";
+  if (mode == "calibration" && elapsed > CALIBRATION_STEP_MS * 11) mode = "auto";
 }
 
-void detect(int sensor, float time) {
-  lastDetection[sensor] = millis();
-  lightWavePlan(sensor == 0 ? ENTRANCE_A : ENTRANCE_B, time);
+void updateNight(float ldrPercent) {
+  bool night = isNight ? ldrPercent <= DAY_THRESHOLD : ldrPercent < NIGHT_THRESHOLD;
+  if (night == isNight) return;
+  isNight = night;
+  phaseStartedAt = millis();
 }
 
-void readPirs(float time) {
-  const int pins[2] = {PIR_A_PIN, PIR_B_PIN};
+void readPirs() {
   for (int sensor = 0; sensor < 2; sensor++) {
-    int level = digitalRead(pins[sensor]);
-    if (level == PIR_ACTIVE_LEVEL && previousPir[sensor] != PIR_ACTIVE_LEVEL) detect(sensor, time);
+    int level = digitalRead(PIR_PINS[sensor]);
+    if (level == PIR_ACTIVE_LEVEL && previousPir[sensor] != PIR_ACTIVE_LEVEL) {
+      lastDetection[sensor] = millis();
+      lightWavePlan(ENTRANCES[sensor], waveTime());
+    }
     previousPir[sensor] = level;
   }
 }
 
+void startMode(const char *name) {
+  mode = name;
+  modeStartedAt = millis();
+}
+
 void onCommand(uint8_t *payload, size_t length) {
   JsonDocument command;
-  if (deserializeJson(command, payload, length) || command["type"] != "command") return;
+  if (deserializeJson(command, payload, length)) return;
+  if (command["type"] != "command") return;
   String name = command["name"].as<String>();
   if (name == "setStrategy") strategy = command["value"].as<String>();
-  if (name == "startNight") {
-    timeFactor = command["factor"] | 60;
-    startedAt = millis();
-    mode = "night";
-    for (auto &plan : plans) plan.used = false;
-  }
-  if (name == "brightnessSweep") {
-    mode = "sweep";
-    sweepStartedAt = millis();
-  }
-  if (name == "simulatePerson") detect(command["entrance"] == "B3" ? 1 : 0, nightTime());
+  if (name == "lampTest") startMode("lampTest");
+  if (name == "calibrate") startMode("calibration");
 }
 
 void onSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
   if (type == WStype_TEXT) onCommand(payload, length);
 }
 
-void sendReading(float time, int ldrRaw, float ldrPercent, float *brightness, State *states) {
+void sendReading(int ldrRaw, float ldrPercent, float *levels, State *states) {
   JsonDocument reading;
   reading["type"] = "reading";
-  reading["source"] = "esp32";
-  reading["timeMs"] = millis() - startedAt;
-  reading["clock"] = clockText(time);
   reading["strategy"] = strategy;
   reading["mode"] = mode;
+  reading["isNight"] = isNight;
+  reading["clock"] = clockText();
   reading["ldrRaw"] = ldrRaw;
   reading["ldrPercent"] = round(ldrPercent * 10) / 10.0;
-  reading["isNight"] = isNight;
-  reading["pirA"] = millis() - lastDetection[0] < 2000 ? 1 : 0;
-  reading["pirB"] = millis() - lastDetection[1] < 2000 ? 1 : 0;
+  reading["pirA"] = millis() - lastDetection[0] < PIR_SIGNAL_MS ? 1 : 0;
+  reading["pirB"] = millis() - lastDetection[1] < PIR_SIGNAL_MS ? 1 : 0;
   for (int pole = 0; pole < POLE_COUNT; pole++) {
-    reading["brightness"].add(int(round(brightness[pole] * 100)));
+    reading["brightness"].add(int(round(levels[pole] * 100)));
     reading["states"].add(STATE_NAMES[states[pole]]);
   }
   reading["currentMa"] = inaReady ? ina219.getCurrent_mA() : 0;
@@ -189,34 +220,34 @@ void sendReading(float time, int ldrRaw, float ldrPercent, float *brightness, St
 
 void setup() {
   Serial.begin(115200);
-  for (int pole = 0; pole < POLE_COUNT; pole++) ledcAttach(LED_PINS[pole], 5000, 8);
-  pinMode(PIR_A_PIN, INPUT);
-  pinMode(PIR_B_PIN, INPUT);
-  dijkstra(ENTRANCE_A, distances[0]);
-  dijkstra(ENTRANCE_B, distances[1]);
+  for (int pole = 0; pole < POLE_COUNT; pole++) {
+    ledcAttach(LED_PINS[pole], 5000, 8);
+  }
+  pinMode(PIR_PINS[0], INPUT);
+  pinMode(PIR_PINS[1], INPUT);
+  dijkstra(ENTRANCES[0], distances[0]);
+  dijkstra(ENTRANCES[1], distances[1]);
   inaReady = ina219.begin();
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   socket.begin(SERVER_IP, SERVER_PORT, "/esp32");
   socket.onEvent(onSocketEvent);
   socket.setReconnectInterval(2000);
-  startedAt = millis();
 }
 
 void loop() {
   socket.loop();
-  float time = nightTime();
   int ldrRaw = analogRead(LDR_PIN);
   float ldrPercent = ldrRaw / 4095.0 * 100;
-  isNight = isNight ? ldrPercent <= DAY_THRESHOLD : ldrPercent < NIGHT_THRESHOLD;
-  readPirs(time);
-  if (mode == "sweep" && millis() - sweepStartedAt > SWEEP_STEP_MS * 11) mode = "live";
-  float brightness[POLE_COUNT];
+  updateNight(ldrPercent);
+  updateMode();
+  readPirs();
+  float levels[POLE_COUNT];
   State states[POLE_COUNT];
   for (int pole = 0; pole < POLE_COUNT; pole++) {
-    brightness[pole] = brightnessOf(pole, time, states[pole]);
-    ledcWrite(LED_PINS[pole], int(brightness[pole] * 255));
+    levels[pole] = poleLevel(pole, states[pole]);
+    ledcWrite(LED_PINS[pole], int(levels[pole] * 255));
   }
   if (millis() - lastReadingAt < READING_INTERVAL_MS) return;
   lastReadingAt = millis();
-  if (socket.isConnected()) sendReading(time, ldrRaw, ldrPercent, brightness, states);
+  if (socket.isConnected()) sendReading(ldrRaw, ldrPercent, levels, states);
 }
