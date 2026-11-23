@@ -107,6 +107,10 @@ function sendExport(request, response) {
   response.send(csv);
 }
 
+function announceNight() {
+  broadcast(appSockets, { type: 'nightSaved' });
+}
+
 const app = express();
 app.use(express.static(projectPath('src/client')));
 app.use('/shared', express.static(projectPath('src/shared')));
@@ -121,5 +125,6 @@ const server = createServer(app);
 server.on('upgrade', onUpgrade);
 boardSockets.on('connection', onBoardConnection);
 appSockets.on('connection', onAppConnection);
+Recorder.onNightSaved(announceNight);
 setInterval(checkBoard, 500);
 server.listen(PORT, printAddresses);

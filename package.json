@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "export": "node scripts/exportResults.js",
     "start": "node src/server/main.js"
   },
   "dependencies": {

@@ -9,14 +9,16 @@ const CALIBRATION_FILE = new URL('calibration.json', DATA_FOLDER);
 const MAX_STEP_SECONDS = 2;
 const MINIMUM_NIGHT_SECONDS = 5;
 const COLUMNS = ['time', 'clock', 'strategy', 'mode', 'isNight', 'ldrPercent', 'pirA', 'pirB', 'brightness', 'states', 'currentMa', 'voltage', 'powerMw'];
-const SUMMARY_COLUMNS = ['source', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energyWh', 'averagePowerW', 'switchOns', 'serviceLevel'];
+const SUMMARY_COLUMNS = ['source', 'synthetic', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energyWh', 'averagePowerW', 'switchOns', 'serviceLevel'];
 
 const Session = {
   night: null,
   calibration: null,
+  calibrationSynthetic: false,
   lastReadingAt: 0,
   previousPir: { pirA: 0, pirB: 0 },
   previousBrightness: [0, 0, 0, 0, 0, 0],
+  nightSaved: null,
 };
 
 function readJson(file, fallback) {
@@ -49,12 +51,13 @@ function saveNight(night) {
   nights.push(night);
   mkdirSync(DATA_FOLDER, { recursive: true });
   writeFileSync(NIGHTS_FILE, JSON.stringify(nights, null, 2));
+  if (Session.nightSaved) Session.nightSaved(night);
 }
 
 function startNight(reading) {
   const startedAt = localTime();
   const file = `night_${startedAt.replace(/\D/g, '')}.csv`;
-  Session.night = { source: 'maqueta', startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energyWh: 0, people: 0, switchOns: 0 };
+  Session.night = { source: 'maqueta', synthetic: reading.synthetic === 1, startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energyWh: 0, people: 0, switchOns: 0 };
   mkdirSync(NIGHTS_FOLDER, { recursive: true });
   appendFileSync(new URL(file, NIGHTS_FOLDER), `${COLUMNS.join(',')}\n`);
 }
@@ -108,7 +111,7 @@ function finishCalibration() {
     points.push([Number(level), point.total / point.count]);
   }
   Session.calibration = null;
-  writeFileSync(CALIBRATION_FILE, JSON.stringify({ date: localTime(), points }, null, 2));
+  writeFileSync(CALIBRATION_FILE, JSON.stringify({ date: localTime(), synthetic: Session.calibrationSynthetic, points }, null, 2));
 }
 
 function record(reading) {
@@ -117,6 +120,7 @@ function record(reading) {
   Session.lastReadingAt = now;
   if (reading.mode === 'calibration') {
     Session.calibration = Session.calibration || {};
+    Session.calibrationSynthetic = reading.synthetic === 1;
     addToCalibration(reading);
   } else if (Session.calibration) {
     finishCalibration();
@@ -130,6 +134,7 @@ function record(reading) {
 function recordSimulation(run) {
   saveNight({
     source: 'simulacion',
+    synthetic: false,
     startedAt: localTime(),
     strategy: run.strategy,
     scenario: run.scenario,
@@ -141,6 +146,10 @@ function recordSimulation(run) {
     serviceLevel: run.serviceLevel,
     powerPerMinute: run.powerPerMinute,
   });
+}
+
+function onNightSaved(callback) {
+  Session.nightSaved = callback;
 }
 
 function nights() {
@@ -212,6 +221,6 @@ function exportCsv(name) {
   return build ? build() : '';
 }
 
-const Recorder = { record, recordSimulation, nights, calibration, exportCsv };
+const Recorder = { record, recordSimulation, onNightSaved, nights, calibration, exportCsv };
 
 export default Recorder;

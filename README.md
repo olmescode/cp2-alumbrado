@@ -14,7 +14,6 @@ Seis luminarias LED se regulan según la luz ambiente (LDR) y el paso de persona
 npm install     # dependencias dentro del proyecto (node_modules/)
 npm test        # pruebas de los modelos con los valores de control
 npm start       # app en http://localhost:8080
-npm run export  # resultados de la simulación en data/results/
 ```
 
 ## Cómo se prueba con la maqueta
@@ -31,7 +30,7 @@ npm run export  # resultados de la simulación en data/results/
 
 ## Análisis en Colab
 
-1. Descarga los 4 CSV desde el menú **⋯** de la parte superior.
+1. En **Análisis**, descarga los 4 CSV desde el menú **⋯** de la parte superior.
 2. Abre `practica_cp2_alumbrado_grupo10.ipynb` en Google Drive (carpeta de prácticas) con Colab y ejecútalo; la primera celda pide subir los archivos.
 
 El cuaderno sigue el formato de las prácticas de clase y aplica sus funciones (`reg_lin`, `tabla_sumatorias`, Euler, `dijkstra_tabla`) a los datos de la maqueta y de la simulación.
@@ -66,6 +65,5 @@ El cuaderno sigue el formato de las prácticas de clase y aplica sus funciones (
 | `src/server/` | Puente entre la placa y la app, y registro de noches y calibración |
 | `firmware/streetlights/` | Programa del ESP32 |
 | `tests/` | Pruebas automáticas |
-| `scripts/` | Exportación de resultados de la simulación |
-| `data/` | Archivos generados: `results/` (simulación), `nights/`, `nights.json` y `calibration.json` (maqueta) |
+| `data/` | Generado por el servidor: `nights/` (lecturas de cada noche), `nights.json` (resumen) y `calibration.json` |
 | `docs/` | Especificación, diagramas y material de referencia |

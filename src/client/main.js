@@ -18,6 +18,7 @@ function showScreen(name) {
     else tab.removeAttribute('aria-current');
   }
   document.getElementById('board-status').hidden = name !== 'monitor';
+  document.querySelector('.menu').hidden = name !== 'analysis';
   SCREENS[name].show();
   window.scrollTo({ top: 0 });
 }

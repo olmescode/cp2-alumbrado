@@ -1,6 +1,7 @@
 node_modules/
 .claude/settings.local.json
 firmware/streetlights/build/
+docs/
 data/nights/
 data/nights.json
 data/calibration.json

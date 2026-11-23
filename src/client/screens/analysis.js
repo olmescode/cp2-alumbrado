@@ -2,6 +2,7 @@ import Config from '/shared/config.js';
 import Energy from '/shared/energy.js';
 import StreetGraph from '/shared/streetGraph.js';
 import Charts from '../charts.js';
+import Connection from '../connection.js';
 import Labels from '../labels.js';
 
 const SOURCES = { simulacion: 'Simulación', maqueta: 'Maqueta' };
@@ -95,7 +96,8 @@ function renderNights(nights) {
     const strategy = night.mixedStrategies ? 'Mixta' : Labels.STRATEGIES[night.strategy];
     const duration = night.source === 'maqueta' ? `${Labels.number(night.seconds, 0)} s` : '12 h';
     const download = night.file ? `<a href="/data/nights/${night.file}" download>CSV</a>` : '';
-    rows += `<tr><td>${SOURCES[night.source]}</td><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
+    const source = night.synthetic ? `${SOURCES[night.source]} (prueba)` : SOURCES[night.source];
+    rows += `<tr><td>${source}</td><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
       <td class="number">${night.people}</td><td class="number">${duration}</td>
       <td class="number">${Labels.number(night.energyWh, 1)} Wh</td><td class="number">${Labels.number(night.averagePowerW, 1)} W</td>
       <td class="number">${night.switchOns}</td><td>${download}</td></tr>`;
@@ -117,7 +119,8 @@ function renderCalibration(calibration) {
   bind('figures').innerHTML = `
     <div><strong>${Labels.number(fit.intercept, 2)} mW</strong><span>a</span></div>
     <div><strong>${Labels.number(fit.slope, 3)} mW/%</strong><span>b</span></div>
-    <div><strong>${Labels.number(fit.r2, 4)}</strong><span>R²</span></div>`;
+    <div><strong>${Labels.number(fit.r2, 4)}</strong><span>R²</span></div>
+    ${calibration.synthetic ? '<div><strong>Prueba</strong><span>Datos</span></div>' : ''}`;
   const measured = [];
   for (const [x, y] of points) {
     measured.push({ x, y });
@@ -175,12 +178,17 @@ async function show() {
   renderCalibration(await calibrationResponse.json());
 }
 
+function onMessage(message) {
+  if (message.type === 'nightSaved' && view.element.dataset.active === 'true') show();
+}
+
 function start() {
   view.element = document.getElementById('analysis');
   view.element.innerHTML = template();
   view.savingsChart = Charts.barChart(bind('savings-chart'), 'Ahorro (%)');
   view.regressionChart = Charts.scatterChart(bind('regression-chart'), 'Brillo (%)', 'Potencia (mW)');
   view.element.addEventListener('click', onClick);
+  Connection.subscribe(onMessage);
   renderDijkstra();
 }
 

@@ -45,6 +45,7 @@ button { font: inherit; color: inherit; }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 .pill[hidden] { display: none; }
 .menu { position: relative; }
+.menu[hidden] { display: none; }
 .icon-button { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; padding: 0; }
 .icon-button svg { width: 20px; height: 20px; fill: var(--ink); }
 .menu-panel { position: absolute; right: 0; top: 44px; z-index: 20; display: grid; min-width: 220px; padding: 6px; border-radius: 18px; background: rgb(28 32 44 / 0.86); }
