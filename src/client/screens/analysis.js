@@ -1,86 +1,125 @@
 import Config from '/shared/config.js';
 import Energy from '/shared/energy.js';
-import NightSimulator from '/shared/nightSimulator.js';
+import StreetGraph from '/shared/streetGraph.js';
 import Charts from '../charts.js';
 import Labels from '../labels.js';
 
-const view = { element: null, chart: null, simulated: null };
+const SOURCES = { simulacion: 'Simulación', maqueta: 'Maqueta' };
+const SOURCE_COLORS = { simulacion: '#5e5ce6', maqueta: '#ffb340' };
+const EXPORTS = [
+  ['resumen_noches', 'Resumen de noches', 'Una fila por noche de la maqueta o de la simulación: estrategia, personas, energía, potencia media.'],
+  ['lecturas_maqueta', 'Lecturas de la maqueta', 'Todas las lecturas del ESP32 (cada 0,5 s) de las noches registradas.'],
+  ['calibracion', 'Calibración del consumo', 'Brillo (%) y potencia medida (mW) de la última calibración.'],
+  ['simulacion_por_minuto', 'Simulaciones por minuto', 'Potencia media de cada minuto de cada noche simulada.'],
+];
+
+const view = { element: null, savingsChart: null, regressionChart: null, origin: 'A1' };
 
 function template() {
+  let exportButtons = '';
+  for (const [name, title, detail] of EXPORTS) {
+    exportButtons += `<a class="export glass" href="/api/export/${name}.csv" download><strong>${title}</strong><span>${detail}</span></a>`;
+  }
   return `
     <article class="card glass">
-      <h2>Ahorro frente a la iluminación permanente</h2>
-      <p class="hint">Observado: potencia media de las noches registradas con cada estrategia, comparada con las noches en modo permanente. Simulado: una noche completa de 12 h con 20 personas. El observado depende de cuántas personas pasaron en cada prueba.</p>
-      <div class="bars" data-bind="savings"></div>
+      <h2>Comparación de estrategias</h2>
+      <p class="hint">Ahorro de cada estrategia frente a la permanente: 1 − potencia media de la estrategia / potencia media de la permanente, calculado por separado con las noches de la maqueta y con las de la simulación.</p>
+      <div class="chart"><canvas data-bind="savings-chart"></canvas></div>
+      <div class="table-scroll"><table data-bind="savings-table"></table></div>
     </article>
-    <div class="columns">
+    <article class="card glass">
+      <h2>Noches registradas</h2>
+      <p class="hint">Las noches de la maqueta empiezan al tapar el LDR. Las de la simulación se guardan al llegar a las 06:00. Energía = Σ P · Δt.</p>
+      <div data-bind="nights"></div>
+    </article>
+    <div class="columns even">
       <article class="card glass">
-        <h2>Noches registradas</h2>
-        <p class="hint">Cada vez que se tapa el LDR empieza una noche y se registra hasta que se destapa. La energía es la integral de la potencia medida (E = Σ P · Δt).</p>
-        <div data-bind="nights"></div>
-      </article>
-      <article class="card glass">
-        <h2>Consumo de las luminarias</h2>
-        <p class="hint">Recta potencia = a + b · brillo ajustada por mínimos cuadrados con los puntos de la última calibración.</p>
+        <h2>Modelo de consumo</h2>
+        <p class="hint">Recta potencia = a + b · brillo ajustada por mínimos cuadrados con la calibración de la maqueta.</p>
         <div class="figures" data-bind="figures"></div>
-        <div class="chart"><canvas data-bind="chart"></canvas></div>
+        <div class="chart"><canvas data-bind="regression-chart"></canvas></div>
       </article>
-    </div>`;
+      <article class="card glass" data-bind="dijkstra"></article>
+    </div>
+    <article class="card glass">
+      <h2>Exportar datos</h2>
+      <p class="hint">Archivos CSV para analizarlos fuera de la app, por ejemplo con el notebook de Colab del proyecto (notebooks/analisis_alumbrado.ipynb).</p>
+      <div class="exports">${exportButtons}</div>
+    </article>`;
 }
 
 function bind(name) {
   return view.element.querySelector(`[data-bind="${name}"]`);
 }
 
-function averagePowerByStrategy(nights) {
-  const totals = {};
+function groupBySource(nights) {
+  const groups = { simulacion: {}, maqueta: {} };
   for (const night of nights) {
     if (night.mixedStrategies) continue;
-    const total = totals[night.strategy] || { power: 0, count: 0 };
-    totals[night.strategy] = { power: total.power + night.averagePowerMw, count: total.count + 1 };
+    const group = groups[night.source];
+    const totals = group[night.strategy] || { power: 0, service: 0, count: 0 };
+    group[night.strategy] = { power: totals.power + night.averagePower, service: totals.service + (night.serviceLevel || 0), count: totals.count + 1 };
   }
-  const averages = {};
-  for (const [strategy, total] of Object.entries(totals)) {
-    averages[strategy] = total.power / total.count;
-  }
-  return averages;
+  return groups;
 }
 
-function bar(percent, color, label) {
-  return `<div class="bar" style="width:${Math.max(percent, 0)}%;background:${color}"></div><span class="bar-label">${label}</span>`;
+function savings(group, strategy) {
+  if (!group[strategy] || !group.permanent) return NaN;
+  const average = group[strategy].power / group[strategy].count;
+  const permanent = group.permanent.power / group.permanent.count;
+  return 100 * (1 - average / permanent);
+}
+
+function percentText(percent) {
+  return Number.isNaN(percent) ? 'Faltan noches' : `${Labels.number(percent, 1)} %`;
 }
 
 function renderSavings(nights) {
-  const averages = averagePowerByStrategy(nights);
-  let rows = '';
-  for (const run of view.simulated) {
-    const color = Labels.COLORS[run.strategy];
-    const hasObserved = averages[run.strategy] && averages.permanent;
-    const observed = hasObserved ? 100 * (1 - averages[run.strategy] / averages.permanent) : 0;
-    const observedLabel = hasObserved ? `Observado ${Labels.number(observed, 1)} %` : 'Observado: sin noches registradas';
-    rows += `<div class="bar-row"><span>${Labels.STRATEGIES[run.strategy]}</span><div class="bar-track">
-      ${bar(observed, color, observedLabel)}
-      ${bar(run.savingsPercent, `${color}66`, `Simulado ${Labels.number(run.savingsPercent, 1)} %`)}
-    </div></div>`;
+  const groups = groupBySource(nights);
+  const labels = [];
+  for (const strategy of Config.STRATEGIES) {
+    labels.push(Labels.STRATEGIES[strategy]);
   }
-  bind('savings').innerHTML = rows;
+  const datasets = [];
+  for (const source of Object.keys(SOURCES)) {
+    const values = [];
+    for (const strategy of Config.STRATEGIES) {
+      values.push(savings(groups[source], strategy) || 0);
+    }
+    datasets.push({ label: SOURCES[source], data: values, backgroundColor: SOURCE_COLORS[source], borderRadius: 8 });
+  }
+  view.savingsChart.data.labels = labels;
+  view.savingsChart.data.datasets = datasets;
+  view.savingsChart.update();
+  let rows = '';
+  for (const strategy of Config.STRATEGIES) {
+    const simulated = groups.simulacion[strategy];
+    const service = simulated ? `${Labels.number(simulated.service / simulated.count, 1)} %` : '—';
+    const counts = `${simulated ? simulated.count : 0} / ${groups.maqueta[strategy] ? groups.maqueta[strategy].count : 0}`;
+    rows += `<tr><td><span class="swatch" style="background:${Labels.COLORS[strategy]}"></span>${Labels.STRATEGIES[strategy]}</td>
+      <td class="number">${percentText(savings(groups.simulacion, strategy))}</td><td class="number">${percentText(savings(groups.maqueta, strategy))}</td>
+      <td class="number">${service}</td><td class="number">${counts}</td></tr>`;
+  }
+  bind('savings-table').innerHTML = `<thead><tr><th>Estrategia</th><th class="number">Ahorro simulación</th><th class="number">Ahorro maqueta</th><th class="number">Servicio (simulación)</th><th class="number">Noches sim. / maqueta</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderNights(nights) {
   if (nights.length === 0) {
-    bind('nights').innerHTML = '<p class="empty">Aún no hay noches. Conecta la maqueta, tapa el LDR durante un minuto y pasa el muñeco frente a los sensores.</p>';
+    bind('nights').innerHTML = '<p class="empty">Aún no hay noches. Tapa el LDR de la maqueta durante un minuto, o corre una noche en Simulación.</p>';
     return;
   }
   let rows = '';
   for (const night of [...nights].reverse()) {
     const strategy = night.mixedStrategies ? 'Mixta' : Labels.STRATEGIES[night.strategy];
-    rows += `<tr><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
-      <td class="number">${Labels.number(night.seconds, 0)} s</td><td class="number">${night.people}</td>
-      <td class="number">${Labels.number(night.energyMwh, 2)}</td><td class="number">${Labels.number(night.averagePowerMw, 0)}</td>
-      <td><a href="/data/nights/${night.file}" download>CSV</a></td></tr>`;
+    const duration = night.source === 'maqueta' ? `${Labels.number(night.seconds, 0)} s` : '12 h';
+    const download = night.file ? `<a href="/data/nights/${night.file}" download>CSV</a>` : '';
+    rows += `<tr><td>${SOURCES[night.source]}</td><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
+      <td class="number">${night.people}</td><td class="number">${duration}</td>
+      <td class="number">${Labels.number(night.energy, 2)} ${night.unit}h</td><td class="number">${Labels.number(night.averagePower, 1)} ${night.unit}</td>
+      <td class="number">${night.switchOns}</td><td>${download}</td></tr>`;
   }
   bind('nights').innerHTML = `<div class="table-scroll"><table>
-    <thead><tr><th>Inicio</th><th>Estrategia</th><th class="number">Duración</th><th class="number">Personas</th><th class="number">mWh</th><th class="number">mW medios</th><th></th></tr></thead>
+    <thead><tr><th>Fuente</th><th>Inicio</th><th>Estrategia</th><th class="number">Personas</th><th class="number">Duración</th><th class="number">Energía</th><th class="number">Potencia media</th><th class="number">Encendidos</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -88,28 +127,65 @@ function renderCalibration(calibration) {
   const points = calibration.points;
   if (points.length < 3) {
     bind('figures').innerHTML = '<p class="empty">Sin calibración. En Monitoreo, pulsa Calibrar consumo con la maqueta conectada.</p>';
-    view.chart.data.datasets = [];
-    view.chart.update();
+    view.regressionChart.data.datasets = [];
+    view.regressionChart.update();
     return;
   }
   const fit = Energy.linearRegression(points);
   bind('figures').innerHTML = `
-    <div><strong>${Labels.number(fit.intercept, 2)} mW</strong><span>a (consumo con brillo 0)</span></div>
-    <div><strong>${Labels.number(fit.slope, 3)} mW/%</strong><span>b (por cada % de brillo)</span></div>
+    <div><strong>${Labels.number(fit.intercept, 2)} mW</strong><span>a, consumo con brillo 0</span></div>
+    <div><strong>${Labels.number(fit.slope, 3)} mW/%</strong><span>b, por cada % de brillo</span></div>
     <div><strong>${Labels.number(fit.r2, 4)}</strong><span>R²</span></div>`;
   const measured = [];
   for (const [x, y] of points) {
     measured.push({ x, y });
   }
-  view.chart.data.datasets = [
+  view.regressionChart.data.datasets = [
     { label: 'Medido', data: measured, backgroundColor: '#ffb340', pointRadius: 5 },
     Charts.series('Recta ajustada', [{ x: 0, y: fit.intercept }, { x: 100, y: fit.intercept + fit.slope * 100 }], '#5e5ce6', { type: 'line' }),
   ];
-  view.chart.update();
+  view.regressionChart.update();
+}
+
+function renderDijkstra() {
+  const { iterations, distances } = StreetGraph.dijkstra(StreetGraph.graph, view.origin);
+  const visited = [];
+  let header = '';
+  for (const pole of Config.POLES) {
+    header += `<th class="number">${pole}</th>`;
+  }
+  let rows = '';
+  for (let step = 0; step < iterations.length; step++) {
+    visited.push(iterations[step].visited);
+    let cells = '';
+    for (const pole of Config.POLES) {
+      const distance = iterations[step].distances[pole];
+      cells += `<td class="number">${visited.includes(pole) ? '✓ ' : ''}${distance === Infinity ? '∞' : distance}</td>`;
+    }
+    rows += `<tr><td>${step + 1}</td><td><strong>${iterations[step].visited}</strong></td>${cells}</tr>`;
+  }
+  let arrivals = '';
+  for (const pole of Config.POLES) {
+    arrivals += `<td class="number">${Labels.number(distances[pole] / Config.WALKING_SPEED, 1)} s</td>`;
+  }
+  bind('dijkstra').innerHTML = `
+    <h2>Modelo del grafo</h2>
+    <p class="hint">Dijkstra da la distancia en metros desde la entrada hasta cada poste. A 1,4 m/s se obtiene cuándo llega la persona y el poste se enciende ${Config.ANTICIPATION_TIME} s antes.</p>
+    ${Labels.segmented('origin', { A1: 'Entra por A1', B3: 'Entra por B3' }, view.origin)}
+    <div class="table-scroll"><table>
+      <thead><tr><th>Paso</th><th>Visitado</th>${header}</tr></thead>
+      <tbody>${rows}<tr><td colspan="2">Llegada</td>${arrivals}</tr></tbody>
+    </table></div>`;
+}
+
+function onClick(event) {
+  const button = event.target.closest('[data-group="origin"]');
+  if (!button) return;
+  view.origin = button.dataset.key;
+  renderDijkstra();
 }
 
 async function show() {
-  view.simulated = view.simulated || NightSimulator.compare(Config.SCENARIOS.normal);
   const nightsResponse = await fetch('/api/nights');
   const calibrationResponse = await fetch('/api/calibration');
   const nights = await nightsResponse.json();
@@ -121,7 +197,10 @@ async function show() {
 function start() {
   view.element = document.getElementById('analysis');
   view.element.innerHTML = template();
-  view.chart = Charts.scatterChart(bind('chart'), 'Brillo (%)', 'Potencia (mW)');
+  view.savingsChart = Charts.barChart(bind('savings-chart'), 'Ahorro (%)');
+  view.regressionChart = Charts.scatterChart(bind('regression-chart'), 'Brillo (%)', 'Potencia (mW)');
+  view.element.addEventListener('click', onClick);
+  renderDijkstra();
 }
 
 const Analysis = { start, show };

@@ -64,8 +64,7 @@ function minuteAverages(powers) {
   return averages;
 }
 
-function simulate(strategy, people) {
-  const walkers = Scenarios.walkers(people);
+function simulateWalkers(strategy, walkers) {
   const plans = [];
   const spans = [];
   for (const walker of walkers) {
@@ -90,12 +89,16 @@ function simulate(strategy, people) {
   }
   return {
     strategy,
-    people,
+    people: walkers.length,
     energyWh: Energy.energy(powers),
     serviceLevel: walkers.length > 0 ? (100 * served) / walkers.length : 100,
     switchOns,
     powerPerMinute: minuteAverages(powers),
   };
+}
+
+function simulate(strategy, people) {
+  return simulateWalkers(strategy, Scenarios.walkers(people));
 }
 
 function compare(people) {
@@ -109,6 +112,6 @@ function compare(people) {
   return runs;
 }
 
-const NightSimulator = { planSpan, activePlans, clock, snapshot, totalPower, simulate, compare };
+const NightSimulator = { planSpan, activePlans, clock, snapshot, totalPower, simulateWalkers, simulate, compare };
 
 export default NightSimulator;

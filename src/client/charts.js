@@ -31,10 +31,16 @@ function scatterChart(canvas, xTitle, yTitle) {
   return new Chart(canvas, { type: 'scatter', data: { datasets: [] }, options });
 }
 
+function barChart(canvas, yTitle) {
+  const options = baseOptions(yTitle, true);
+  options.interaction = { intersect: false, mode: 'index' };
+  return new Chart(canvas, { type: 'bar', data: { labels: [], datasets: [] }, options });
+}
+
 function series(label, values, color, extra = {}) {
   return { label, data: values, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 0, ...extra };
 }
 
-const Charts = { applyTheme, lineChart, scatterChart, series };
+const Charts = { applyTheme, lineChart, scatterChart, barChart, series };
 
 export default Charts;

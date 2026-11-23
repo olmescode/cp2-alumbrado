@@ -91,6 +91,22 @@ function sendCalibration(request, response) {
   response.json(Recorder.calibration());
 }
 
+function saveSimulation(request, response) {
+  Recorder.recordSimulation(request.body);
+  response.json({ saved: true });
+}
+
+function sendExport(request, response) {
+  const csv = Recorder.exportCsv(request.params.name);
+  if (!csv) {
+    response.status(404).end();
+    return;
+  }
+  response.attachment(`${request.params.name}.csv`);
+  response.type('text/csv');
+  response.send(csv);
+}
+
 const app = express();
 app.use(express.static(projectPath('src/client')));
 app.use('/shared', express.static(projectPath('src/shared')));
@@ -98,6 +114,8 @@ app.use('/vendor', express.static(projectPath('node_modules/chart.js/dist')));
 app.use('/data', express.static(projectPath('data')));
 app.get('/api/nights', sendNights);
 app.get('/api/calibration', sendCalibration);
+app.post('/api/simulations', express.json({ limit: '1mb' }), saveSimulation);
+app.get('/api/export/:name.csv', sendExport);
 
 const server = createServer(app);
 server.on('upgrade', onUpgrade);

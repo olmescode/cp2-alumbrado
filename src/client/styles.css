@@ -51,6 +51,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 14px 20px 140px; }
 .screen { display: none; gap: 18px; }
 .screen[data-active='true'] { display: grid; }
 .columns { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.columns.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .stack { display: grid; gap: 18px; }
 
 .card { border-radius: var(--radius); padding: 22px; display: grid; gap: 14px; min-width: 0; }
@@ -134,3 +135,9 @@ a { color: var(--light); }
 .map .sensor { fill: #f5ecd9; stroke: #9b7b45; stroke-width: 1.2; transition: fill 0.2s ease; }
 .map [data-active='true'] .sensor { fill: #30d158; stroke: #1c8a3a; }
 .map .walker { fill: #ffffff; stroke: #1f2933; stroke-width: 3; }
+
+.exports { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.export { display: grid; gap: 4px; padding: 16px; border-radius: 18px; color: var(--ink); text-decoration: none; }
+.export strong { font-size: 0.9375rem; }
+.export span { color: var(--muted); font-size: 0.8125rem; }
+.export:hover { border-color: rgb(255 179 64 / 0.5); }
