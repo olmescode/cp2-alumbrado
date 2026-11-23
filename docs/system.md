@@ -2,6 +2,13 @@
 
 This is the source of truth for the models, strategies, scenarios and protocol. `src/shared/` implements it once. `firmware/` ports it to C++ using the same names.
 
+## Day, night and the clock (on the board)
+
+- The LDR decides: covering it starts a **night**, uncovering it starts a **day** (hysteresis: night below 30 %, day above 40 %).
+- When a night starts the clock jumps to **18:00**; when a day starts it jumps to **06:00**. The clock then runs at **1 real minute = 12 hours** (`CLOCK_FACTOR = 720`) and stops at the end of the half day. A 1-minute covered test is one full night.
+- The `scheduled` strategy reads this clock (50 % from 23:00 to 05:00).
+- The light wave runs at a human pace so it can be seen with a toy figure: `WAVE_FACTOR = 10`, about 2 s per 30 m segment.
+
 ## Hardware
 
 | Component | Connection |
@@ -143,21 +150,28 @@ Each strategy × scenario run reports:
 
 ## Protocol (WebSocket JSON)
 
-**ESP32 or emulator → server**, every 500 ms:
+**ESP32 → server**, every 500 ms:
 
 ```json
-{"type":"reading","source":"esp32","timeMs":123456,"clock":"21:30","strategy":"adaptive","mode":"live","ldrRaw":745,"ldrPercent":18.2,"isNight":true,"pirA":1,"pirB":0,"brightness":[100,100,100,100,20,20],"states":["Active","Active","Active","Active","Base","Base"],"currentMa":74.2,"voltage":5.02,"powerMw":371.0}
+{"type":"reading","strategy":"adaptive","mode":"auto","isNight":true,"clock":"21:30","ldrRaw":745,"ldrPercent":18.2,"pirA":1,"pirB":0,"brightness":[100,100,100,100,20,20],"states":["Active","Active","Active","Active","Base","Base"],"currentMa":74.2,"voltage":5.02,"powerMw":371.0}
 ```
 
-`source` is either `"esp32"` or `"emulator"`. `mode` is `live` (real time with the ×10 light wave), `night` (accelerated night) or `sweep` (brightness sweep); the server starts a new CSV in `data/logs/` whenever `strategy` or `mode` changes. `permanent` and `scheduled` report the state `Fixed`. The app always shows which one: "ESP32 real" or "Datos emulados".
+- `mode` is `auto` (normal operation), `lampTest` or `calibration`.
+- `permanent` and `scheduled` report the state `Fixed`; tests report `Fixed` too.
+- The server forwards each reading to the browsers with the current night summary attached (`night: { strategy, seconds, energyMwh, people }`).
 
-**Server → ESP32:**
+**App → server → ESP32** (operator controls):
 
 | Message | Effect |
 |---|---|
 | `{"type":"command","name":"setStrategy","value":"scheduled"}` | Switches strategy |
-| `{"type":"command","name":"startNight","factor":60}` | Starts an accelerated night where 1 real second equals 1 minute, so the night lasts 12 min |
-| `{"type":"command","name":"brightnessSweep"}` | Steps the LEDs from 0 to 100 % in steps of 10 %, 3 s per step |
-| `{"type":"command","name":"simulatePerson","entrance":"A1"}` | Emulator only |
+| `{"type":"command","name":"lampTest"}` | All 6 LEDs at 100 % for 5 s, to spot a damaged LED |
+| `{"type":"command","name":"calibrate"}` | LEDs from 0 to 100 % in steps of 10 %, 3 s per step; the INA219 readings give the Model 2 regression |
 
-On the physical model the light wave uses a configurable time factor so it is visible during the demo. The default is ×10, about 2 s per segment.
+## What the server records (`data/`)
+
+| File | Content |
+|---|---|
+| `nights/night_<start>.csv` | Every reading of one night |
+| `nights.json` | One summary per night: start, strategy (or mixed), seconds, people detected, energy in mWh (Σ P · Δt with readings in `auto` mode), average power |
+| `calibration.json` | Points (brightness %, average mW) of the last calibration |

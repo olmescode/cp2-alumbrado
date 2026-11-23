@@ -1,54 +1,55 @@
 # Architecture
 
-## Systems
+## How the system works
 
 ```mermaid
 flowchart LR
   subgraph Board["Physical model"]
-    SENSORS[LDR · PIR A · PIR B · INA219]
+    SENSORS[LDR, PIR A, PIR B, INA219]
+    FIRMWARE[ESP32<br/>decides on its own]
     LEDS[6 PWM LEDs]
   end
-  FIRMWARE[firmware/streetlights<br/>state machine + graph]
-  EMULATOR[src/emulator]
-  subgraph Server["src/server · :8080"]
-    DEVICE["/esp32"]
-    BROWSER["/app"]
-    LOGS[(data/logs)]
+  subgraph Server["src/server :8080"]
+    BRIDGE[WebSocket bridge<br/>/esp32 and /app]
+    RECORDER[Recorder]
+    DATA[(data/<br/>nights, calibration)]
+  end
+  subgraph App["src/client"]
+    MONITOR[Monitoreo<br/>live data and controls]
+    ANALYSIS[Análisis<br/>savings and regression]
+    SIMULATION[Simulación<br/>digital copy of the city]
   end
   SHARED[src/shared<br/>3 models]
-  CLIENT[src/client<br/>Simulation · Live]
-  EXPORT[scripts/exportResults.js]
 
   SENSORS --> FIRMWARE --> LEDS
-  FIRMWARE <-->|reading / command| DEVICE
-  EMULATOR <-->|reading / command| DEVICE
-  DEVICE <--> BROWSER
-  DEVICE --> LOGS
-  BROWSER <-->|reading / command| CLIENT
-  SHARED -.-> CLIENT
-  SHARED -.-> EMULATOR
-  SHARED -.-> EXPORT
+  FIRMWARE -->|reading| BRIDGE
+  BRIDGE -->|command| FIRMWARE
+  BRIDGE --> RECORDER --> DATA
+  BRIDGE <--> MONITOR
+  DATA --> ANALYSIS
+  SHARED -.-> SIMULATION
+  SHARED -.-> ANALYSIS
   SHARED -.C++ port.-> FIRMWARE
 ```
 
-| System | Responsibilities |
+| Part | Responsibility |
 |---|---|
-| `src/shared` | Implements the 3 models with no I/O. Simulates a full night and computes the indicators |
-| `src/server` | Serves the app and the shared models. Bridges the WebSocket routes and logs CSV files. Raises an alert after 3 s without the device. Prints the LAN IP |
-| `src/emulator` | Pretends to be the ESP32: sends readings every 500 ms, answers every command and adds noise to `powerMw` |
-| `firmware` | Decides each pole's state **on the board**, so it keeps working without WiFi. Drives the PWM and reports readings |
-| `src/client` | Dashboard with two modes: local simulation and live mirror |
+| ESP32 (`firmware/`) | Reads the sensors, decides day or night with the LDR, runs the state machine and the light wave, drives the LEDs and reports every 500 ms. Works without WiFi |
+| Server (`src/server/`) | Serves the app, forwards readings to the browsers and operator commands to the board, records each night and calibration, and warns after 3 s without data |
+| Monitoreo | What happens right now: map, day or night, clock, measured power, people detected and alerts. Operator controls: strategy, lamp test, calibration |
+| Análisis | Recorded nights, observed savings next to simulated savings, and the consumption regression |
+| Simulación | A full 12 h night with 5, 20 or 60 people, the comparison of the 3 strategies and the Dijkstra table |
 
 ## Luminaire states
 
 ```mermaid
 stateDiagram-v2
   [*] --> Off
-  Off --> Base: night (ldr < 30 %)
+  Off --> Base: LDR covered (night)
   Base --> Active: graph activation time
   Active --> Hold: person reaches the pole
   Hold --> Base: HOLD_TIME elapsed
-  Base --> Off: day (ldr > 40 %)
+  Base --> Off: LDR uncovered (day)
   Active --> Off: day
   Hold --> Off: day
 ```
@@ -57,21 +58,9 @@ stateDiagram-v2
 
 ```mermaid
 graph LR
-  A1((A1 · PIR A)) ---|30 m| A2((A2))
-  A2 ---|30 m| A3((A3 · exit))
+  A1((A1, PIR A)) ---|30 m| A2((A2))
+  A2 ---|30 m| A3((A3, exit))
   A2 ---|30 m| B1((B1))
   B1 ---|30 m| B2((B2))
-  B2 ---|30 m| B3((B3 · PIR B))
-```
-
-## Client
-
-```mermaid
-flowchart TB
-  MAIN[main.js] --> CONNECTION[Connection<br/>WebSocket /app]
-  MAIN --> SIMULATION[LocalSimulation<br/>src/shared]
-  MAIN --> STORE[Store<br/>current state + subscribers]
-  CONNECTION --> STORE
-  SIMULATION --> STORE
-  STORE --> LAYERS[Layers<br/>Header, CityMap, Controls, Metrics, Charts<br/>Comparison, PoleTable, Dijkstra<br/>Alerts, Regression, History]
+  B2 ---|30 m| B3((B3, PIR B))
 ```
