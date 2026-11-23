@@ -14,8 +14,8 @@ function template(parts) {
         <article class="card glass">
           <h2>Ahora</h2>
           <div class="stats">
-            <div class="stat"><strong data-bind="power">0</strong><span>Potencia</span></div>
-            <div class="stat"><strong data-bind="energy">0</strong><span>Energía de la noche</span></div>
+            <div class="stat"><strong data-bind="power">0 ${parts.unit}</strong><span>Potencia</span></div>
+            <div class="stat"><strong data-bind="energy">0 ${parts.unit}h</strong><span>Energía de la noche</span></div>
             <div class="stat"><strong data-bind="people">0</strong><span>Personas en la noche</span></div>
             <div class="stat"><strong data-bind="lit">0 de 6</strong><span>Postes al 100 %</span></div>
           </div>

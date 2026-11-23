@@ -138,6 +138,7 @@ function start() {
   view.element = document.getElementById('monitor');
   view.element.innerHTML = ScreenLayout.template({
     phase: 'Esperando datos',
+    unit: 'mW',
     nowHint: 'Medido por el INA219 en la línea de los LEDs de la maqueta.',
     controlsTitle: 'Control de la placa',
     controls: controls(),

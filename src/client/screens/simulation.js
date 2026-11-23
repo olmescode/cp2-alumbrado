@@ -189,6 +189,7 @@ function start() {
   view.element = document.getElementById('simulation');
   view.element.innerHTML = ScreenLayout.template({
     phase: 'Noche simulada',
+    unit: 'W',
     nowHint: 'Calculado con el modelo de consumo a escala real: 100 W por poste al 100 %.',
     controlsTitle: 'Control de la simulación',
     controls: controls(),
