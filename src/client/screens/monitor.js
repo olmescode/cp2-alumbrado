@@ -87,6 +87,7 @@ function renderReading(reading) {
   bind('info').textContent = `Luz ${Labels.number(reading.ldrPercent, 0)} %`;
   ScreenLayout.renderNow(view.element, { watts: Energy.realScale(reading.powerMw), energyWh: night.energyWh, people: night.people, poles });
   Labels.markSelected(view.element, 'strategy', reading.strategy);
+  document.getElementById('board-status').textContent = reading.synthetic ? 'Datos de prueba' : 'ESP32 conectado';
   renderAlerts(alertsFor(reading));
   renderButtons(reading);
 }
