@@ -16,7 +16,7 @@ Domain rules (models, strategies, scenarios, control values, protocol, hardware 
 - `arduino-cli` 1.6 with the `esp32:esp32` core 4.0.0 and the `WebSockets` 2.7, `ArduinoJson` 7.4 and `Adafruit INA219` 1.2 libraries.
 
 ```bash
-npm test                 # node --test tests/
+npm test                 # node --test (runs tests/*.test.js)
 npm run export           # writes data/results/ (simulation results)
 npm start                # server on :8080, serves the app, prints the LAN IP for phones
 npm run emulator         # fake ESP32 connected to the server
