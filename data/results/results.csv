@@ -1,0 +1,13 @@
+strategy,scenario,people,energyWh,savingsPercent,serviceLevel,switchOns
+permanent,empty,0,7200.00,0.00,100.00,6
+scheduled,empty,0,5400.00,25.00,100.00,12
+adaptive,empty,0,1440.00,80.00,100.00,0
+permanent,quiet,5,7200.00,0.00,100.00,6
+scheduled,quiet,5,5400.00,25.00,100.00,12
+adaptive,quiet,5,1465.56,79.65,100.00,30
+permanent,normal,20,7200.00,0.00,100.00,6
+scheduled,normal,20,5400.00,25.00,85.00,12
+adaptive,normal,20,1542.22,78.58,100.00,120
+permanent,busy,60,7200.00,0.00,100.00,6
+scheduled,busy,60,5400.00,25.00,83.33,12
+adaptive,busy,60,1746.67,75.74,100.00,360
