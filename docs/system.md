@@ -146,10 +146,10 @@ Each strategy × scenario run reports:
 **ESP32 or emulator → server**, every 500 ms:
 
 ```json
-{"type":"reading","source":"esp32","timeMs":123456,"clock":"21:30","strategy":"adaptive","ldrRaw":745,"ldrPercent":18.2,"isNight":true,"pirA":1,"pirB":0,"brightness":[100,100,100,100,20,20],"states":["Active","Active","Active","Active","Base","Base"],"currentMa":74.2,"voltage":5.02,"powerMw":371.0}
+{"type":"reading","source":"esp32","timeMs":123456,"clock":"21:30","strategy":"adaptive","mode":"live","ldrRaw":745,"ldrPercent":18.2,"isNight":true,"pirA":1,"pirB":0,"brightness":[100,100,100,100,20,20],"states":["Active","Active","Active","Active","Base","Base"],"currentMa":74.2,"voltage":5.02,"powerMw":371.0}
 ```
 
-`source` is either `"esp32"` or `"emulator"`. The app always shows which one: "ESP32 real" or "Datos emulados".
+`source` is either `"esp32"` or `"emulator"`. `mode` is `live` (real time with the ×10 light wave), `night` (accelerated night) or `sweep` (brightness sweep); the server starts a new CSV in `data/logs/` whenever `strategy` or `mode` changes. `permanent` and `scheduled` report the state `Fixed`. The app always shows which one: "ESP32 real" or "Datos emulados".
 
 **Server → ESP32:**
 

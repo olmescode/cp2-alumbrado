@@ -1,3 +1,4 @@
 node_modules/
 .claude/settings.local.json
 firmware/streetlights/build/
+data/logs/

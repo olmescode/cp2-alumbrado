@@ -73,6 +73,5 @@ flowchart TB
   MAIN --> STORE[Store<br/>current state + subscribers]
   CONNECTION --> STORE
   SIMULATION --> STORE
-  STORE --> LAYERS[Layers<br/>Header · GraphPanel · StateTable · Charts<br/>Comparison · Alerts · History · Regression]
-  LAYERS --> COMPONENTS[Components<br/>Card · Table · Button]
+  STORE --> LAYERS[Layers<br/>Header, CityMap, Controls, Metrics, Charts<br/>Comparison, PoleTable, Dijkstra<br/>Alerts, Regression, History]
 ```

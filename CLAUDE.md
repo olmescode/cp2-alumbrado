@@ -38,7 +38,7 @@ arduino-cli compile --fqbn esp32:esp32:esp32 firmware/streetlights
 src/
 ├── shared/       # The 3 models, pure, no I/O; imported by client, server, emulator and scripts
 ├── server/       # Node: static hosting, WebSocket bridge, CSV logging
-├── client/       # Web app: services/, layers/, components/, styles/
+├── client/       # Web app: main.js, services/, layers/, styles.css, labels.js (Spanish UI text)
 └── emulator/     # Pretends to be the ESP32 using the shared models
 firmware/         # Arduino sketch (C++ port of src/shared with the same names)
 scripts/          # One-off tools (results export, parameter optimization)
@@ -53,7 +53,7 @@ docs/             # system.md, architecture.md, reference/ (assignment PDF, plan
 Each runtime has exactly one entry point. It initializes systems in a fixed order.
 
 ### II. Singleton-Based Systems
-Top-level systems (`Connection`, `Store`, `LocalSimulation`, `CsvLogger`) are modules that export one named object of functions and state. They are never instantiated. Call them with dot syntax (`Connection.send()`). The entry point initializes them explicitly.
+Top-level systems (`Connection`, `Store`, `LocalSimulation`, `CsvLogger`, every layer) are modules that export one named object of functions and state. They are never instantiated. Call them with dot syntax (`Connection.send()`). The entry point initializes them explicitly.
 
 ### III. Shared Models Are Pure
 `src/shared/` never touches the DOM, sockets or the file system. Everything that simulates or decides comes from there, so the app, the emulator and the export script always agree. The firmware ports it to C++ with identical names.
@@ -70,9 +70,8 @@ Classes extend functionality through composition rather than `extends`. Child ob
 
 ### User Interface
 - **Imperative**: plain DOM, with no framework. Chart.js for charts.
-- **Layers and components**:
-  - **Layers** are singleton views (`Header`, `GraphPanel`, `StateTable`, `Charts`, `Comparison`, `Alerts`, `History`, `Regression`). Each one subscribes to `Store`.
-  - **Components** are reusable classes (`Card`, `Table`, `Button`).
+- **Services** (`Store`, `LocalSimulation`, `Connection`) own the state. **Layers** are singleton views (`Header`, `CityMap`, `Controls`, `Metrics`, `Charts`, `Comparison`, `PoleTable`, `Dijkstra`, `Alerts`, `Regression`, `History`); each one subscribes to `Store` and only draws.
+- Add a reusable component class (with `destroy()`) only when two layers need the same piece.
 - **Modes**: Simulation (local, driven by `src/shared`) and Live (data from the server). The data source badge ("ESP32 real" or "Datos emulados") is always visible.
 - **Language**: all user-facing text is in Spanish. Code, files, folders and docs are in English.
 - **Design**: use the `frontend-design` skill. The app is responsive for laptop and phone (390 px).
