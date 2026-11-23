@@ -10,6 +10,8 @@ const planSpan = (plan) => {
 };
 
 const NightSimulator = {
+  planSpan,
+
   snapshot: (strategy, plans, time, isNight = true) => Config.POLES.map((pole) => Strategies[strategy](pole, time, plans, isNight)),
 
   simulate: (strategy, people) => {

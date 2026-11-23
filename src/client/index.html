@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alumbrado adaptativo</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/vendor/chart.umd.js"></script>
+    <script type="module" src="main.js"></script>
+  </head>
+  <body data-mode="simulation">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Alumbrado adaptativo</h1>
+        <p>Modelos y Simulación, Grupo 10</p>
+      </div>
+      <div class="segmented" id="mode-switch" role="tablist" aria-label="Modo">
+        <button data-mode="simulation" role="tab">Simulación</button>
+        <button data-mode="live" role="tab">En vivo</button>
+      </div>
+      <span class="badge" id="source-badge"></span>
+    </header>
+
+    <main>
+      <section class="stage">
+        <figure class="map" id="city-map"></figure>
+        <aside class="panel" id="controls"></aside>
+      </section>
+
+      <section class="metrics" id="metrics" aria-live="polite"></section>
+
+      <section class="columns">
+        <article class="card">
+          <h2>Potencia</h2>
+          <p class="hint" id="power-hint"></p>
+          <div class="chart"><canvas id="power-chart"></canvas></div>
+        </article>
+        <article class="card">
+          <h2>Energía acumulada</h2>
+          <p class="hint" id="energy-hint"></p>
+          <div class="chart"><canvas id="energy-chart"></canvas></div>
+        </article>
+      </section>
+
+      <article class="card" id="comparison"></article>
+
+      <section class="columns">
+        <article class="card" id="pole-table"></article>
+        <article class="card" id="dijkstra"></article>
+      </section>
+
+      <section class="columns live-only">
+        <article class="card" id="alerts"></article>
+        <article class="card" id="regression"></article>
+      </section>
+
+      <article class="card live-only" id="history"></article>
+    </main>
+  </body>
+</html>
