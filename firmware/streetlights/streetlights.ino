@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <WiFi.h>
+#include <Wire.h>
 
 const char *WIFI_SSID = "TU_RED_WIFI";
 const char *WIFI_PASS = "TU_CLAVE_WIFI";
@@ -9,11 +10,13 @@ const char *SERVER_IP = "192.168.1.104";
 const uint16_t SERVER_PORT = 8080;
 
 const int POLE_COUNT = 6;
-const int LED_PINS[POLE_COUNT] = {13, 14, 16, 17, 18, 19};
-const int PIR_PINS[2] = {27, 26};
+const int LED_PINS[POLE_COUNT] = {13, 12, 14, 27, 26, 25};
+const int PIR_PINS[2] = {35, 34};
 const int PIR_ACTIVE_LEVEL = HIGH;
 const int ENTRANCES[2] = {0, 5};
-const int LDR_PIN = 34;
+const int LDR_PIN = 36;
+const int SDA_PIN = 33;
+const int SCL_PIN = 32;
 const int STREETS[5][3] = {{0, 1, 30}, {1, 2, 30}, {1, 3, 30}, {3, 4, 30}, {4, 5, 30}};
 
 const float BASE_LEVEL = 0.2;
@@ -227,6 +230,7 @@ void setup() {
   pinMode(PIR_PINS[1], INPUT);
   dijkstra(ENTRANCES[0], distances[0]);
   dijkstra(ENTRANCES[1], distances[1]);
+  Wire.setPins(SDA_PIN, SCL_PIN);
   inaReady = ina219.begin();
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   socket.begin(SERVER_IP, SERVER_PORT, "/esp32");
