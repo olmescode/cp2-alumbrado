@@ -7,8 +7,10 @@ import ScreenLayout from '../screenLayout.js';
 
 const LED_NOMINAL_MW = 90;
 const SAMPLE_LIMIT = 2400;
+const CHIME_NOTES = [880, 784, 784, 659, 587, 523];
+const CHIME_SECONDS = 0.5;
 
-const view = { element: null, map: null, chart: null, online: false, wasNight: false, samples: [], fit: null };
+const view = { element: null, map: null, chart: null, online: false, wasNight: false, samples: [], fit: null, audio: null, previousBrightness: [100, 100, 100, 100, 100, 100] };
 
 function controls() {
   return `
@@ -75,6 +77,28 @@ function renderChart(reading) {
   view.chart.update();
 }
 
+function chime(pole) {
+  view.audio = view.audio || new AudioContext();
+  view.audio.resume();
+  const now = view.audio.currentTime;
+  const oscillator = view.audio.createOscillator();
+  const gain = view.audio.createGain();
+  oscillator.frequency.value = CHIME_NOTES[pole];
+  gain.gain.setValueAtTime(0.2, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + CHIME_SECONDS);
+  oscillator.connect(gain);
+  gain.connect(view.audio.destination);
+  oscillator.start(now);
+  oscillator.stop(now + CHIME_SECONDS);
+}
+
+function playChimes(reading) {
+  for (let pole = 0; pole < reading.brightness.length; pole++) {
+    if (reading.brightness[pole] >= 100 && view.previousBrightness[pole] < 100) chime(pole);
+  }
+  view.previousBrightness = reading.brightness;
+}
+
 function renderReading(reading) {
   const night = reading.night || { energyWh: 0, people: 0 };
   const poles = [];
@@ -115,6 +139,7 @@ function onMessage(message) {
   if (!view.online) setOnline(true);
   renderReading(message);
   renderChart(message);
+  playChimes(message);
 }
 
 function onClick(event) {
