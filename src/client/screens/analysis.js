@@ -96,7 +96,7 @@ function renderNights(nights) {
     const strategy = night.mixedStrategies ? 'Mixta' : Labels.STRATEGIES[night.strategy];
     const duration = night.source === 'maqueta' ? `${Labels.number(night.seconds, 0)} s` : '12 h';
     const download = night.file ? `<a href="/data/nights/${night.file}" download>CSV</a>` : '';
-    const source = night.synthetic ? `${SOURCES[night.source]} (prueba)` : SOURCES[night.source];
+    const source = night.synthetic ? `${SOURCES[night.source]} (prueba)` : night.estimatedPower ? `${SOURCES[night.source]} (consumo estimado)` : SOURCES[night.source];
     rows += `<tr><td>${source}</td><td>${night.startedAt.slice(5, 16)}</td><td>${strategy}</td>
       <td class="number">${night.people}</td><td class="number">${duration}</td>
       <td class="number">${Labels.number(night.energyWh, 1)} Wh</td><td class="number">${Labels.number(night.averagePowerW, 1)} W</td>

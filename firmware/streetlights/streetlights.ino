@@ -33,6 +33,7 @@ const unsigned long LAMP_TEST_MS = 5000;
 const unsigned long CALIBRATION_STEP_MS = 3000;
 const unsigned long PIR_SIGNAL_MS = 2000;
 const int MAX_PLANS = 8;
+const float LED_FULL_MW = 90;
 
 enum State { Off, Base, Hold, Active, Fixed };
 const char *STATE_NAMES[] = {"Off", "Base", "Hold", "Active", "Fixed"};
@@ -209,13 +210,16 @@ void sendReading(int ldrRaw, float ldrPercent, float *levels, State *states) {
   reading["ldrPercent"] = round(ldrPercent * 10) / 10.0;
   reading["pirA"] = millis() - lastDetection[0] < PIR_SIGNAL_MS ? 1 : 0;
   reading["pirB"] = millis() - lastDetection[1] < PIR_SIGNAL_MS ? 1 : 0;
+  float estimatedMw = 0;
   for (int pole = 0; pole < POLE_COUNT; pole++) {
     reading["brightness"].add(int(round(levels[pole] * 100)));
     reading["states"].add(STATE_NAMES[states[pole]]);
+    estimatedMw += levels[pole] * LED_FULL_MW;
   }
   reading["currentMa"] = inaReady ? ina219.getCurrent_mA() : 0;
   reading["voltage"] = inaReady ? ina219.getBusVoltage_V() : 0;
-  reading["powerMw"] = inaReady ? ina219.getPower_mW() : 0;
+  reading["powerMw"] = inaReady ? ina219.getPower_mW() : estimatedMw;
+  reading["powerEstimated"] = inaReady ? 0 : 1;
   String message;
   serializeJson(reading, message);
   socket.sendTXT(message);

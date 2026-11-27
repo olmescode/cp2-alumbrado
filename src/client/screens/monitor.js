@@ -86,6 +86,7 @@ function renderReading(reading) {
   bind('clock').textContent = reading.clock;
   bind('info').textContent = `Luz ${Labels.number(reading.ldrPercent, 0)} %`;
   ScreenLayout.renderNow(view.element, { watts: Energy.realScale(reading.powerMw), energyWh: night.energyWh, people: night.people, poles });
+  bind('power-label').textContent = reading.powerEstimated === 1 ? 'Potencia estimada' : 'Potencia';
   Labels.markSelected(view.element, 'strategy', reading.strategy);
   document.getElementById('board-status').textContent = reading.synthetic ? 'Datos de prueba' : 'ESP32 conectado';
   renderAlerts(alertsFor(reading));

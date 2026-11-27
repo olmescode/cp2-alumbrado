@@ -8,8 +8,8 @@ const NIGHTS_FILE = new URL('nights.json', DATA_FOLDER);
 const CALIBRATION_FILE = new URL('calibration.json', DATA_FOLDER);
 const MAX_STEP_SECONDS = 2;
 const MINIMUM_NIGHT_SECONDS = 5;
-const COLUMNS = ['time', 'clock', 'strategy', 'mode', 'isNight', 'ldrPercent', 'pirA', 'pirB', 'brightness', 'states', 'currentMa', 'voltage', 'powerMw'];
-const SUMMARY_COLUMNS = ['source', 'synthetic', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energyWh', 'averagePowerW', 'switchOns', 'serviceLevel'];
+const COLUMNS = ['time', 'clock', 'strategy', 'mode', 'isNight', 'ldrPercent', 'pirA', 'pirB', 'brightness', 'states', 'currentMa', 'voltage', 'powerMw', 'powerEstimated'];
+const SUMMARY_COLUMNS = ['source', 'synthetic', 'estimatedPower', 'startedAt', 'strategy', 'scenario', 'people', 'seconds', 'energyWh', 'averagePowerW', 'switchOns', 'serviceLevel'];
 
 const Session = {
   night: null,
@@ -57,7 +57,7 @@ function saveNight(night) {
 function startNight(reading) {
   const startedAt = localTime();
   const file = `night_${startedAt.replace(/\D/g, '')}.csv`;
-  Session.night = { source: 'maqueta', synthetic: reading.synthetic === 1, startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energyWh: 0, people: 0, switchOns: 0 };
+  Session.night = { source: 'maqueta', synthetic: reading.synthetic === 1, estimatedPower: reading.powerEstimated === 1, startedAt, file, strategy: reading.strategy, mixedStrategies: false, seconds: 0, energyWh: 0, people: 0, switchOns: 0 };
   mkdirSync(NIGHTS_FOLDER, { recursive: true });
   appendFileSync(new URL(file, NIGHTS_FOLDER), `${COLUMNS.join(',')}\n`);
 }
@@ -118,7 +118,7 @@ function record(reading) {
   const now = Date.now();
   const seconds = Session.lastReadingAt > 0 ? Math.min((now - Session.lastReadingAt) / 1000, MAX_STEP_SECONDS) : 0;
   Session.lastReadingAt = now;
-  if (reading.mode === 'calibration') {
+  if (reading.mode === 'calibration' && reading.powerEstimated !== 1) {
     Session.calibration = Session.calibration || {};
     Session.calibrationSynthetic = reading.synthetic === 1;
     addToCalibration(reading);
