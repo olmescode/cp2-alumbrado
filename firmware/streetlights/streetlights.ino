@@ -101,11 +101,11 @@ String clockText() {
   return String(text);
 }
 
-void lightWavePlan(int entrance, float startTime) {
+void lightWavePlan(int sensor, float startTime) {
   Plan &plan = plans[nextPlan];
   nextPlan = (nextPlan + 1) % MAX_PLANS;
   for (int pole = 0; pole < POLE_COUNT; pole++) {
-    float arrival = startTime + distances[entrance][pole] / WALKING_SPEED;
+    float arrival = startTime + distances[sensor][pole] / WALKING_SPEED;
     plan.windows[pole] = {max(startTime, arrival - ANTICIPATION_TIME), arrival, arrival + HOLD_TIME};
   }
   plan.used = true;
@@ -173,7 +173,7 @@ void readPirs() {
     int level = digitalRead(PIR_PINS[sensor]);
     if (level == PIR_ACTIVE_LEVEL && previousPir[sensor] != PIR_ACTIVE_LEVEL) {
       lastDetection[sensor] = millis();
-      lightWavePlan(ENTRANCES[sensor], waveTime());
+      lightWavePlan(sensor, waveTime());
     }
     previousPir[sensor] = level;
   }
