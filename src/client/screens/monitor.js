@@ -7,8 +7,8 @@ import ScreenLayout from '../screenLayout.js';
 
 const LED_NOMINAL_MW = 90;
 const SAMPLE_LIMIT = 2400;
-const CHIME_NOTES = [880, 784, 784, 659, 587, 523];
-const CHIME_SECONDS = 0.5;
+const CHIME_NOTES = [880, 783.99, 1046.5, 659.25, 587.33, 523.25];
+const CHIME_PARTIALS = [[1, 0.16, 1.8], [2, 0.05, 1], [3, 0.02, 0.5]];
 
 const view = { element: null, map: null, chart: null, online: false, wasNight: false, samples: [], fit: null, audio: null, previousBrightness: [100, 100, 100, 100, 100, 100] };
 
@@ -81,15 +81,18 @@ function chime(pole) {
   view.audio = view.audio || new AudioContext();
   view.audio.resume();
   const now = view.audio.currentTime;
-  const oscillator = view.audio.createOscillator();
-  const gain = view.audio.createGain();
-  oscillator.frequency.value = CHIME_NOTES[pole];
-  gain.gain.setValueAtTime(0.2, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + CHIME_SECONDS);
-  oscillator.connect(gain);
-  gain.connect(view.audio.destination);
-  oscillator.start(now);
-  oscillator.stop(now + CHIME_SECONDS);
+  for (const [multiple, volume, seconds] of CHIME_PARTIALS) {
+    const oscillator = view.audio.createOscillator();
+    const gain = view.audio.createGain();
+    oscillator.frequency.value = CHIME_NOTES[pole] * multiple;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds);
+    oscillator.connect(gain);
+    gain.connect(view.audio.destination);
+    oscillator.start(now);
+    oscillator.stop(now + seconds);
+  }
 }
 
 function playChimes(reading) {
